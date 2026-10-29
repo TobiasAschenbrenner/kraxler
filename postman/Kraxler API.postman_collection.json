@@ -102,6 +102,112 @@
           }
         }
       ]
+    },
+    {
+      "name": "Routes",
+      "item": [
+        {
+          "name": "List routes for area",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns filtered climbing routes\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data).to.be.an(\"array\");",
+                  "  pm.expect(body.meta.count).to.eql(body.data.length);",
+                  "  if (body.data.length > 0) {",
+                  "    pm.collectionVariables.set(\"routeId\", body.data[0].id);",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/areas/{{areaId}}/routes?discipline={{discipline}}&gradeSystem={{gradeSystem}}&gradeMin={{gradeMin}}&gradeMax={{gradeMax}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "areas", "{{areaId}}", "routes"],
+              "query": [
+                {
+                  "key": "discipline",
+                  "value": "{{discipline}}"
+                },
+                {
+                  "key": "gradeSystem",
+                  "value": "{{gradeSystem}}"
+                },
+                {
+                  "key": "gradeMin",
+                  "value": "{{gradeMin}}"
+                },
+                {
+                  "key": "gradeMax",
+                  "value": "{{gradeMax}}"
+                },
+                {
+                  "key": "style",
+                  "value": "{{style}}",
+                  "disabled": true
+                },
+                {
+                  "key": "lengthMin",
+                  "value": "{{lengthMin}}",
+                  "disabled": true
+                },
+                {
+                  "key": "lengthMax",
+                  "value": "{{lengthMax}}",
+                  "disabled": true
+                },
+                {
+                  "key": "pitchesMin",
+                  "value": "{{pitchesMin}}",
+                  "disabled": true
+                },
+                {
+                  "key": "pitchesMax",
+                  "value": "{{pitchesMax}}",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get route details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns the selected climbing route\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"routeId\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/routes/{{routeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "routes", "{{routeId}}"]
+            }
+          }
+        }
+      ]
     }
   ],
   "variable": [
@@ -113,6 +219,61 @@
     {
       "key": "bbox",
       "value": "2,48,12,50",
+      "type": "string"
+    },
+    {
+      "key": "areaId",
+      "value": "6ae38b4116742f46c40fde50",
+      "type": "string"
+    },
+    {
+      "key": "routeId",
+      "value": "6ae3921116742f46c40ff5ef",
+      "type": "string"
+    },
+    {
+      "key": "discipline",
+      "value": "bouldering",
+      "type": "string"
+    },
+    {
+      "key": "gradeSystem",
+      "value": "fontainebleau",
+      "type": "string"
+    },
+    {
+      "key": "gradeMin",
+      "value": "6A",
+      "type": "string"
+    },
+    {
+      "key": "gradeMax",
+      "value": "6C+",
+      "type": "string"
+    },
+    {
+      "key": "style",
+      "value": "overhang",
+      "type": "string"
+    },
+    {
+      "key": "lengthMin",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "lengthMax",
+      "value": "10",
+      "type": "string"
+    },
+    {
+      "key": "pitchesMin",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "pitchesMax",
+      "value": "1",
       "type": "string"
     }
   ]

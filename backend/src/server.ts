@@ -14,7 +14,14 @@ const startServer = async (): Promise<void> => {
     console.info(`Kraxler API listening on port ${environment.port}.`);
   });
 
+  let shutdownStarted = false;
+
   const shutDown = (signal: NodeJS.Signals): void => {
+    if (shutdownStarted) {
+      return;
+    }
+
+    shutdownStarted = true;
     console.info(`${signal} received. Closing the Kraxler API.`);
 
     server.close((error) => {

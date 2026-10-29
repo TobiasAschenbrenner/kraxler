@@ -18,9 +18,12 @@ describe("service status endpoints", () => {
   it("reports that the service is ready", async () => {
     const response = await request(app).get("/ready");
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     expect(response.body).toMatchObject({
-      status: "ready",
+      status: "not_ready",
+      dependencies: {
+        database: "down",
+      },
     });
   });
 });

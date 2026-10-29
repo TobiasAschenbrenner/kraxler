@@ -1,5 +1,7 @@
 import { Router } from "express";
 
+import { databaseIsReady } from "../../database/mongo.js";
+
 export const healthRouter = Router();
 
 healthRouter.get("/health", (_request, response) => {
@@ -11,8 +13,13 @@ healthRouter.get("/health", (_request, response) => {
 });
 
 healthRouter.get("/ready", (_request, response) => {
-  response.json({
-    status: "ready",
+  const ready = databaseIsReady();
+
+  response.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "not_ready",
+    dependencies: {
+      database: ready ? "up" : "down",
+    },
     timestamp: new Date().toISOString(),
   });
 });

@@ -10,17 +10,13 @@
 import SwiftUI
 
 struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
-    }
-}
+    private let apiClient: APIClient
 
-#Preview {
-    ContentView()
+    init(apiClient: APIClient = APIClient()) {
+        self.apiClient = apiClient
+    }
+
+    var body: some View {
+        MapScreen(apiClient: apiClient)
+    }
 }

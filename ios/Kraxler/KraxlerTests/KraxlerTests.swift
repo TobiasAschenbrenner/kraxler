@@ -5,15 +5,169 @@
 //  Created by Tobias Aschenbrenner on 29.10.26.
 //
 
+import CoreLocation
+import Foundation
+import MapKit
 import Testing
 @testable import Kraxler
 
+@Suite(.serialized)
+@MainActor
 struct KraxlerTests {
+    @Test
+    func derivesBoundsFromVisibleMapRegion() {
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 48.5, longitude: 3),
+            span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 1)
+        )
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-        // Swift Testing Documentation
-        // https://developer.apple.com/documentation/testing
+        let bounds = MapBounds(region: region)
+
+        #expect(bounds.west == 2.5)
+        #expect(bounds.south == 48.25)
+        #expect(bounds.east == 3.5)
+        #expect(bounds.north == 48.75)
     }
 
+    @Test
+    func fetchesAreasInsideMapBounds() async throws {
+        let client = makeClient { request in
+            #expect(request.url?.path == "/api/v1/areas")
+            #expect(request.url?.query == "bbox=2.4,48.3,2.8,48.6")
+
+            return Self.response(
+                for: request,
+                body: """
+                {
+                  "data": [{
+                    "id": "area-1",
+                    "name": "Bas Cuvier",
+                    "type": "climbingArea",
+                    "location": { "type": "Point", "coordinates": [2.63823, 48.44704] }
+                  }],
+                  "meta": { "count": 1 }
+                }
+                """
+            )
+        }
+
+        let areas = try await client.areas(
+            in: MapBounds(west: 2.4, south: 48.3, east: 2.8, north: 48.6)
+        )
+
+        #expect(areas.count == 1)
+        #expect(areas.first?.name == "Bas Cuvier")
+        #expect(areas.first?.location.coordinate.latitude == 48.44704)
+        #expect(areas.first?.location.coordinate.longitude == 2.63823)
+    }
+
+    @Test
+    func fetchesRoutesForSelectedArea() async throws {
+        let client = makeClient { request in
+            #expect(request.url?.path == "/api/v1/areas/area-1/routes")
+
+            return Self.response(
+                for: request,
+                body: """
+                {
+                  "data": [{
+                    "id": "route-1",
+                    "areaId": "area-1",
+                    "name": "La Marie Rose",
+                    "location": { "type": "Point", "coordinates": [2.63823, 48.44704] },
+                    "discipline": "bouldering",
+                    "grade": { "system": "fontainebleau", "value": "6A", "rank": 22 },
+                    "styles": ["overhang"],
+                    "lengthMeters": 5,
+                    "pitches": 1
+                  }],
+                  "meta": { "count": 1 }
+                }
+                """
+            )
+        }
+
+        let routes = try await client.routes(for: "area-1")
+
+        #expect(routes.count == 1)
+        #expect(routes.first?.grade.value == "6A")
+        #expect(routes.first?.styles == [.overhang])
+        #expect(routes.first?.lengthMeters == 5)
+    }
+
+    @Test
+    func reportsHTTPFailures() async {
+        let client = makeClient { request in
+            (
+                HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 503,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!,
+                Data()
+            )
+        }
+
+        await #expect(throws: APIClientError.httpStatus(503)) {
+            try await client.routes(for: "area-1")
+        }
+    }
+
+    private func makeClient(
+        handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
+    ) -> APIClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        URLProtocolStub.handler = handler
+
+        return APIClient(
+            baseURL: URL(string: "http://localhost:3000")!,
+            session: URLSession(configuration: configuration)
+        )
+    }
+
+    nonisolated private static func response(
+        for request: URLRequest,
+        body: String
+    ) -> (HTTPURLResponse, Data) {
+        (
+            HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!,
+            Data(body.utf8)
+        )
+    }
+}
+
+private final class URLProtocolStub: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var handler: (@Sendable (URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            fatalError("URLProtocolStub.handler must be configured before a test runs.")
+        }
+
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }

@@ -29,9 +29,22 @@
 		802423F33093AFDA00DC9E04 /* KraxlerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KraxlerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A1B2C3D4E5F60718293A4B5C /* Exceptions for "Kraxler" folder in "Kraxler" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 802423DB3093AFD700DC9E04 /* Kraxler */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		802423DE3093AFD700DC9E04 /* Kraxler */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1B2C3D4E5F60718293A4B5C /* Exceptions for "Kraxler" folder in "Kraxler" target */,
+			);
 			path = Kraxler;
 			sourceTree = "<group>";
 		};
@@ -371,6 +384,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Kraxler/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Kraxler uses your location to show nearby climbing areas and your position on the map.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -403,6 +417,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Kraxler/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Kraxler uses your location to show nearby climbing areas and your position on the map.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

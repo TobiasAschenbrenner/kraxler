@@ -6,6 +6,11 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		01E98BC57AEB47338734B108 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C9856C43482344DD83C85D20 /* FirebaseAuth */; };
+		F947F32EAD77442290AB85A1 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9251A487AB744BF8944BD9D9 /* FirebaseCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		802423EA3093AFDA00DC9E04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -64,6 +69,8 @@
 		802423D93093AFD700DC9E04 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				01E98BC57AEB47338734B108 /* FirebaseAuth in Frameworks */,
+				F947F32EAD77442290AB85A1 /* FirebaseCore in Frameworks */,
 			);
 		};
 		802423E63093AFDA00DC9E04 /* Frameworks */ = {
@@ -116,6 +123,10 @@
 				802423DE3093AFD700DC9E04 /* Kraxler */,
 			);
 			name = Kraxler;
+			packageProductDependencies = (
+				C9856C43482344DD83C85D20 /* FirebaseAuth */,
+				9251A487AB744BF8944BD9D9 /* FirebaseCore */,
+			);
 			productName = Kraxler;
 			productReference = 802423DC3093AFD700DC9E04 /* Kraxler.app */;
 			productType = "com.apple.product-type.application";
@@ -194,6 +205,9 @@
 			);
 			mainGroup = 802423D33093AFD700DC9E04;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				289E904B25D34F18B0FF2C2A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 802423DD3093AFD700DC9E04 /* Products */;
 			projectDirPath = "";
@@ -557,6 +571,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		289E904B25D34F18B0FF2C2A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9251A487AB744BF8944BD9D9 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 289E904B25D34F18B0FF2C2A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		C9856C43482344DD83C85D20 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 289E904B25D34F18B0FF2C2A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 802423D43093AFD700DC9E04 /* Project object */;
 	validationLevel = 1;

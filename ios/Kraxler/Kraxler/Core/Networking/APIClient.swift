@@ -16,10 +16,13 @@ nonisolated struct MapBounds: Equatable, Hashable, Sendable {
 nonisolated enum APIClientError: Error, Equatable {
     case invalidURL
     case invalidResponse
+    case authenticationRequired
     case httpStatus(Int)
 }
 
 nonisolated struct APIClient: Sendable {
+    typealias AuthTokenProvider = @MainActor @Sendable () async throws -> String?
+
     private struct ListResponse<Value: Decodable & Sendable>: Decodable, Sendable {
         let data: [Value]
     }
@@ -35,15 +38,18 @@ nonisolated struct APIClient: Sendable {
     let baseURL: URL
     private let session: URLSession
     private let decoder: JSONDecoder
+    private let authTokenProvider: AuthTokenProvider
 
     init(
         baseURL: URL = URL(string: "http://localhost:3000")!,
         session: URLSession = .shared,
-        decoder: JSONDecoder = JSONDecoder()
+        decoder: JSONDecoder = JSONDecoder(),
+        authTokenProvider: @escaping AuthTokenProvider = { nil }
     ) {
         self.baseURL = baseURL
         self.session = session
         self.decoder = decoder
+        self.authTokenProvider = authTokenProvider
     }
 
     func areas(in bounds: MapBounds) async throws -> [ClimbingArea] {

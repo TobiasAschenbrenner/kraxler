@@ -6,7 +6,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        if FirebaseApp.app() == nil, FirebaseOptions.defaultOptions() != nil {
+        if FirebaseOptions.defaultOptions() != nil {
             FirebaseApp.configure()
         }
 

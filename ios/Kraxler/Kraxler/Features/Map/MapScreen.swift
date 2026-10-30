@@ -27,6 +27,7 @@ struct MapScreen: View {
 
     @Namespace private var mapScope
     @State private var model: MapScreenModel
+    @State private var locationAuthorization = LocationAuthorizationController()
     @State private var cameraPosition: MapCameraPosition
     @State private var requestedBounds: MapBounds
     @State private var selectedAreaID: String?
@@ -67,7 +68,9 @@ struct MapScreen: View {
                     .tag(area.id)
                 }
 
-                UserAnnotation()
+                if locationAuthorization.isAuthorized {
+                    UserAnnotation()
+                }
             }
             .mapStyle(.standard(elevation: .realistic))
             .mapControls {
@@ -85,13 +88,7 @@ struct MapScreen: View {
             statusOverlay
         }
         .safeAreaInset(edge: .bottom, alignment: .trailing) {
-            MapUserLocationButton(scope: mapScope)
-                .labelStyle(.iconOnly)
-                .frame(width: 50, height: 50)
-                .background(.regularMaterial, in: Circle())
-                .padding()
-                .accessibilityLabel("Show my location")
-                .accessibilityIdentifier("map-user-location-button")
+            locationControl
         }
         .task(id: requestedBounds) {
             guard loadsRemoteAreas else {
@@ -104,6 +101,16 @@ struct MapScreen: View {
                 return
             }
             sheetDestination = .area(area)
+        }
+        .onChange(of: locationAuthorization.isAuthorized) { _, isAuthorized in
+            guard isAuthorized else {
+                return
+            }
+
+            cameraPosition = .userLocation(
+                followsHeading: false,
+                fallback: .region(Self.initialRegion)
+            )
         }
         .sheet(item: $sheetDestination, onDismiss: {
             selectedAreaID = nil
@@ -125,6 +132,31 @@ struct MapScreen: View {
                     pendingAreaFromSearch = area
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var locationControl: some View {
+        if locationAuthorization.isAuthorized {
+            MapUserLocationButton(scope: mapScope)
+                .labelStyle(.iconOnly)
+                .accessibilityLabel("Show my location")
+                .accessibilityIdentifier("map-user-location-button")
+                .locationControlStyle()
+        } else {
+            Button {
+                locationAuthorization.requestAuthorization()
+            } label: {
+                Image(systemName: locationAuthorization.authorizationStatus == .notDetermined
+                    ? "location"
+                    : "location.slash")
+            }
+            .disabled(locationAuthorization.authorizationStatus != .notDetermined)
+            .accessibilityLabel(locationAuthorization.authorizationStatus == .notDetermined
+                ? "Allow location access"
+                : "Location access unavailable")
+            .accessibilityIdentifier("map-location-permission-button")
+            .locationControlStyle()
         }
     }
 
@@ -234,6 +266,14 @@ struct MapScreen: View {
             await Task.yield()
             sheetDestination = .area(area)
         }
+    }
+}
+
+private extension View {
+    func locationControlStyle() -> some View {
+        frame(width: 50, height: 50)
+            .background(.regularMaterial, in: Circle())
+            .padding()
     }
 }
 

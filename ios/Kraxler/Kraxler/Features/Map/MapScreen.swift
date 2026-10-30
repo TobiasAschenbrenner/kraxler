@@ -2,6 +2,20 @@ import MapKit
 import SwiftUI
 
 struct MapScreen: View {
+    private enum SheetDestination: Identifiable {
+        case area(ClimbingArea)
+        case search
+
+        var id: String {
+            switch self {
+            case .area(let area):
+                "area-\(area.id)"
+            case .search:
+                "search"
+            }
+        }
+    }
+
     private static let initialRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 49.1, longitude: 6.9),
         span: MKCoordinateSpan(latitudeDelta: 2.1, longitudeDelta: 10.5)
@@ -15,7 +29,8 @@ struct MapScreen: View {
     @State private var cameraPosition: MapCameraPosition
     @State private var requestedBounds: MapBounds
     @State private var selectedAreaID: String?
-    @State private var selectedArea: ClimbingArea?
+    @State private var sheetDestination: SheetDestination?
+    @State private var pendingAreaFromSearch: ClimbingArea?
 
     init(
         apiClient: APIClient = APIClient(),
@@ -82,12 +97,24 @@ struct MapScreen: View {
             await model.loadAreas(in: requestedBounds)
         }
         .onChange(of: selectedAreaID) { _, areaID in
-            selectedArea = model.visibleAreas.first { $0.id == areaID }
+            guard let area = model.visibleAreas.first(where: { $0.id == areaID }) else {
+                return
+            }
+            sheetDestination = .area(area)
         }
-        .sheet(item: $selectedArea, onDismiss: {
+        .sheet(item: $sheetDestination, onDismiss: {
             selectedAreaID = nil
-        }) { area in
-            AreaDetailSheet(area: area, apiClient: apiClient)
+            presentPendingAreaFromSearch()
+        }) { destination in
+            switch destination {
+            case .area(let area):
+                AreaDetailSheet(area: area, apiClient: apiClient)
+            case .search:
+                MapSearchSheet(apiClient: apiClient) { area in
+                    focusMap(on: area)
+                    pendingAreaFromSearch = area
+                }
+            }
         }
     }
 
@@ -104,16 +131,23 @@ struct MapScreen: View {
 
             Spacer()
 
-            Image(systemName: "mountain.2.fill")
-                .font(.title2)
-                .foregroundStyle(.orange)
+            Button {
+                sheetDestination = .search
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.headline)
+                    .frame(width: 38, height: 38)
+                    .background(.thinMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Search climbing areas and routes")
+            .accessibilityIdentifier("map-search-button")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
         .padding(.horizontal)
         .padding(.top, 8)
-        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -168,6 +202,27 @@ struct MapScreen: View {
             "Finding climbing areas…"
         default:
             "\(model.visibleAreas.count) climbing \(model.visibleAreas.count == 1 ? "area" : "areas") in view"
+        }
+    }
+
+    private func focusMap(on area: ClimbingArea) {
+        cameraPosition = .region(
+            MKCoordinateRegion(
+                center: area.location.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+            )
+        )
+    }
+
+    private func presentPendingAreaFromSearch() {
+        guard let area = pendingAreaFromSearch else {
+            return
+        }
+
+        pendingAreaFromSearch = nil
+        Task { @MainActor in
+            await Task.yield()
+            sheetDestination = .area(area)
         }
     }
 }

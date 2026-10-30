@@ -230,33 +230,6 @@ private struct RouteDetailContent: View {
     }
 }
 
-private extension ClimbingRoute.Discipline {
-    var displayName: String {
-        switch self {
-        case .sport:
-            "Sport climbing"
-        case .trad:
-            "Traditional climbing"
-        case .bouldering:
-            "Bouldering"
-        }
-    }
-}
-
-private extension ClimbingRoute.GradeSystem {
-    var displayName: String {
-        switch self {
-        case .uiaa:
-            "UIAA"
-        case .french:
-            "French"
-        case .fontainebleau:
-            "Fontainebleau"
-        case .vScale:
-            "V-scale"
-        }
-    }
-}
 
 private extension ClimbingRoute.Style {
     var displayName: String {

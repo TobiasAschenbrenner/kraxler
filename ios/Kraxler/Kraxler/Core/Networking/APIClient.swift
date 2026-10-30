@@ -28,6 +28,10 @@ nonisolated struct APIClient: Sendable {
         let data: Value
     }
 
+    private struct SearchResponse: Decodable, Sendable {
+        let data: SearchResults
+    }
+
     let baseURL: URL
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -68,6 +72,23 @@ nonisolated struct APIClient: Sendable {
     func route(id: String) async throws -> ClimbingRoute {
         let url = baseURL.appending(path: "api/v1/routes/\(id)")
         let response: ItemResponse<ClimbingRoute> = try await get(url)
+        return response.data
+    }
+
+    func search(_ query: String) async throws -> SearchResults {
+        var components = URLComponents(
+            url: baseURL.appending(path: "api/v1/search"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [
+            URLQueryItem(name: "q", value: query)
+        ]
+
+        guard let url = components?.url else {
+            throw APIClientError.invalidURL
+        }
+
+        let response: SearchResponse = try await get(url)
         return response.data
     }
 

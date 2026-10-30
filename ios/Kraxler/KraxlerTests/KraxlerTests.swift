@@ -167,6 +167,49 @@ struct KraxlerTests {
     }
 
     @Test
+    func searchesAreasAndRoutesGlobally() async throws {
+        let client = makeClient { request in
+            #expect(request.url?.path == "/api/v1/search")
+            let queryItems = URLComponents(
+                url: request.url!,
+                resolvingAgainstBaseURL: false
+            )?.queryItems
+            #expect(queryItems == [URLQueryItem(name: "q", value: "Marie Rose")])
+
+            return Self.response(
+                for: request,
+                body: """
+                {
+                  "data": {
+                    "areas": [{
+                      "id": "area-1",
+                      "name": "Cuvier",
+                      "type": "climbingArea",
+                      "location": { "type": "Point", "coordinates": [2.63823, 48.44704] }
+                    }],
+                    "routes": [{
+                      "id": "route-1",
+                      "areaId": "area-1",
+                      "name": "La Marie Rose",
+                      "location": { "type": "Point", "coordinates": [2.63823, 48.44704] },
+                      "discipline": "bouldering",
+                      "grade": { "system": "fontainebleau", "value": "6A", "rank": 22 },
+                      "styles": ["overhang"]
+                    }]
+                  },
+                  "meta": { "areaCount": 1, "routeCount": 1 }
+                }
+                """
+            )
+        }
+
+        let results = try await client.search("Marie Rose")
+
+        #expect(results.areas.map(\.name) == ["Cuvier"])
+        #expect(results.routes.map(\.name) == ["La Marie Rose"])
+    }
+
+    @Test
     func reportsHTTPFailures() async {
         let client = makeClient { request in
             (

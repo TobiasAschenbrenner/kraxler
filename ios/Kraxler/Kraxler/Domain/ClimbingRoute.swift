@@ -42,3 +42,31 @@ nonisolated struct ClimbingRoute: Codable, Hashable, Identifiable, Sendable {
     let pitches: Int?
     let description: String?
 }
+
+extension ClimbingRoute.Discipline {
+    var displayName: String {
+        switch self {
+        case .sport:
+            "Sport climbing"
+        case .trad:
+            "Traditional climbing"
+        case .bouldering:
+            "Bouldering"
+        }
+    }
+}
+
+extension ClimbingRoute.GradeSystem {
+    var displayName: String {
+        switch self {
+        case .uiaa:
+            "UIAA"
+        case .french:
+            "French"
+        case .fontainebleau:
+            "Fontainebleau"
+        case .vScale:
+            "V-scale"
+        }
+    }
+}

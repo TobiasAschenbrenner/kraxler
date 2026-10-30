@@ -9,6 +9,7 @@ const environmentSchema = z.object({
     .string()
     .min(1)
     .default("mongodb://127.0.0.1:27017/kraxler"),
+  FIREBASE_PROJECT_ID: z.string().trim().min(1).optional(),
 });
 
 const result = environmentSchema.safeParse(process.env);
@@ -18,6 +19,7 @@ if (!result.success) {
 }
 
 export const environment = {
+  firebaseProjectId: result.data.FIREBASE_PROJECT_ID,
   mongoDbUri: result.data.MONGODB_URI,
   nodeEnv: result.data.NODE_ENV,
   port: result.data.PORT,

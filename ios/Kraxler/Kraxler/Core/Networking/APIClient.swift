@@ -63,8 +63,20 @@ nonisolated struct APIClient: Sendable {
         return response.data
     }
 
-    func routes(for areaID: String) async throws -> [ClimbingRoute] {
-        let url = baseURL.appending(path: "api/v1/areas/\(areaID)/routes")
+    func routes(
+        for areaID: String,
+        filters: RouteFilters = RouteFilters()
+    ) async throws -> [ClimbingRoute] {
+        var components = URLComponents(
+            url: baseURL.appending(path: "api/v1/areas/\(areaID)/routes"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = filters.queryItems.isEmpty ? nil : filters.queryItems
+
+        guard let url = components?.url else {
+            throw APIClientError.invalidURL
+        }
+
         let response: ListResponse<ClimbingRoute> = try await get(url)
         return response.data
     }

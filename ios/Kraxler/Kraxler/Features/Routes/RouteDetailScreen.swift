@@ -229,31 +229,6 @@ private struct RouteDetailContent: View {
         }
     }
 }
-
-
-private extension ClimbingRoute.Style {
-    var displayName: String {
-        switch self {
-        case .slab:
-            "Slab"
-        case .vertical:
-            "Vertical"
-        case .overhang:
-            "Overhang"
-        case .roof:
-            "Roof"
-        case .crack:
-            "Crack"
-        case .chimney:
-            "Chimney"
-        case .arete:
-            "Arête"
-        case .traverse:
-            "Traverse"
-        }
-    }
-}
-
 #if DEBUG
 extension ClimbingRoute {
     static let routeDetailFixture = ClimbingRoute(

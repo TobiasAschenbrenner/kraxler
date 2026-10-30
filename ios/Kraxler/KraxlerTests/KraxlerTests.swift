@@ -128,6 +128,54 @@ struct KraxlerTests {
     }
 
     @Test
+    func sendsSelectedRouteFilters() async throws {
+        let client = makeClient { request in
+            #expect(request.url?.path == "/api/v1/areas/area-1/routes")
+            let queryItems = URLComponents(
+                url: request.url!,
+                resolvingAgainstBaseURL: false
+            )?.queryItems
+            #expect(
+                queryItems == [
+                    URLQueryItem(name: "discipline", value: "sport"),
+                    URLQueryItem(name: "gradeSystem", value: "uiaa"),
+                    URLQueryItem(name: "gradeMin", value: "6"),
+                    URLQueryItem(name: "gradeMax", value: "8+"),
+                    URLQueryItem(name: "style", value: "crack,vertical"),
+                    URLQueryItem(name: "lengthMin", value: "15"),
+                    URLQueryItem(name: "lengthMax", value: "30"),
+                    URLQueryItem(name: "pitchesMin", value: "1"),
+                    URLQueryItem(name: "pitchesMax", value: "2"),
+                ]
+            )
+
+            return Self.response(
+                for: request,
+                body: """
+                { "data": [], "meta": { "count": 0 } }
+                """
+            )
+        }
+
+        let routes = try await client.routes(
+            for: "area-1",
+            filters: RouteFilters(
+                discipline: .sport,
+                gradeSystem: .uiaa,
+                gradeMin: "6",
+                gradeMax: "8+",
+                styles: [.vertical, .crack],
+                lengthMin: 15,
+                lengthMax: 30,
+                pitchesMin: 1,
+                pitchesMax: 2
+            )
+        )
+
+        #expect(routes.isEmpty)
+    }
+
+    @Test
     func fetchesCompleteRouteDetails() async throws {
         let client = makeClient { request in
             #expect(request.url?.path == "/api/v1/routes/route-1")

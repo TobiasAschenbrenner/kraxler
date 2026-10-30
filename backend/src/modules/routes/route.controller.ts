@@ -28,10 +28,12 @@ const serializeRoute = (route: ClimbingRoute & { _id: Types.ObjectId }) => ({
 });
 
 const buildRouteFilter = (
-  areaId: Types.ObjectId,
+  areaIds: Types.ObjectId[],
   filters: RouteFilters,
 ): Record<string, unknown> => {
-  const mongoFilter: Record<string, unknown> = { areaId };
+  const mongoFilter: Record<string, unknown> = {
+    areaId: { $in: areaIds },
+  };
 
   if (filters.discipline !== undefined) {
     mongoFilter.discipline = filters.discipline;
@@ -76,6 +78,39 @@ const buildRouteFilter = (
   return mongoFilter;
 };
 
+const findAreaAndDescendantIds = async (
+  rootAreaId: Types.ObjectId,
+): Promise<Types.ObjectId[]> => {
+  const areaIds = [rootAreaId];
+  const visitedIds = new Set([rootAreaId.toString()]);
+  let parentIds = [rootAreaId];
+
+  while (parentIds.length > 0) {
+    const children = await AreaModel.find({
+      parentAreaId: { $in: parentIds },
+    })
+      .select({ _id: 1 })
+      .lean()
+      .exec();
+
+    parentIds = children
+      .map((child) => child._id)
+      .filter((childId) => {
+        const id = childId.toString();
+
+        if (visitedIds.has(id)) {
+          return false;
+        }
+
+        visitedIds.add(id);
+        areaIds.push(childId);
+        return true;
+      });
+  }
+
+  return areaIds;
+};
+
 export const listRoutesForArea: RequestHandler = async (
   request,
   response,
@@ -111,8 +146,9 @@ export const listRoutesForArea: RequestHandler = async (
       return;
     }
 
+    const areaIds = await findAreaAndDescendantIds(objectId);
     const routes = await RouteModel.find(
-      buildRouteFilter(objectId, query.filters),
+      buildRouteFilter(areaIds, query.filters),
     )
       .sort({ "grade.rank": 1, name: 1 })
       .lean()

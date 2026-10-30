@@ -11,12 +11,33 @@ import SwiftUI
 
 struct ContentView: View {
     private let apiClient: APIClient
+    private let showsRouteDetailFixture: Bool
 
     init(apiClient: APIClient = APIClient()) {
         self.apiClient = apiClient
+#if DEBUG
+        showsRouteDetailFixture = ProcessInfo.processInfo.arguments.contains(
+            "-ui-test-route-detail"
+        )
+#else
+        showsRouteDetailFixture = false
+#endif
     }
 
+    @ViewBuilder
     var body: some View {
-        MapScreen(apiClient: apiClient)
+        if showsRouteDetailFixture {
+#if DEBUG
+            NavigationStack {
+                RouteDetailScreen(
+                    routeID: ClimbingRoute.routeDetailFixture.id,
+                    initialRoute: .routeDetailFixture,
+                    loadsRemoteRoute: false
+                )
+            }
+#endif
+        } else {
+            MapScreen(apiClient: apiClient)
+        }
     }
 }

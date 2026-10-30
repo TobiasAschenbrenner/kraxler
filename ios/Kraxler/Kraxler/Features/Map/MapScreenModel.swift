@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import Observation
 
@@ -16,6 +17,27 @@ final class MapScreenModel {
 
     private(set) var areas: [ClimbingArea]
     private(set) var loadStatus: LoadStatus
+
+    var visibleAreas: [ClimbingArea] {
+        var areasByLocation: [MapLocationKey: ClimbingArea] = [:]
+
+        for area in areas {
+            let key = MapLocationKey(coordinate: area.location.coordinate)
+
+            guard let currentArea = areasByLocation[key] else {
+                areasByLocation[key] = area
+                continue
+            }
+
+            if area.type.mapMarkerPriority > currentArea.type.mapMarkerPriority {
+                areasByLocation[key] = area
+            }
+        }
+
+        return areasByLocation.values.sorted {
+            $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
+    }
 
     init(
         apiClient: APIClient,
@@ -66,5 +88,30 @@ final class MapScreenModel {
         }
 
         return "Climbing areas could not be loaded. Please try again."
+    }
+}
+
+private struct MapLocationKey: Hashable {
+    private static let precision = 100_000.0
+
+    let latitude: Int
+    let longitude: Int
+
+    init(coordinate: CLLocationCoordinate2D) {
+        latitude = Int((coordinate.latitude * Self.precision).rounded())
+        longitude = Int((coordinate.longitude * Self.precision).rounded())
+    }
+}
+
+private extension ClimbingArea.AreaType {
+    var mapMarkerPriority: Int {
+        switch self {
+        case .region:
+            1
+        case .sector:
+            2
+        case .climbingArea:
+            3
+        }
     }
 }

@@ -64,6 +64,41 @@ afterAll(async () => {
 });
 
 describe("GET /api/v1/areas/:areaId/routes", () => {
+  it("includes routes from descendant sectors", async () => {
+    const climbingArea = await AreaModel.create({
+      name: "Röthelfels",
+      type: "climbingArea",
+      location: { type: "Point", coordinates: [11.24633, 49.74745] },
+    });
+
+    await AreaModel.findByIdAndUpdate(areaId, {
+      parentAreaId: climbingArea._id,
+    });
+
+    await RouteModel.create({
+      name: "Sonntagsspaziergang",
+      areaId,
+      location: { type: "Point", coordinates: [11.24633, 49.74745] },
+      discipline: "sport",
+      grade: {
+        system: "uiaa",
+        value: "6+",
+        rank: requiredGradeRank("uiaa", "6+"),
+      },
+      styles: ["vertical", "crack"],
+      lengthMeters: 20,
+      pitches: 1,
+    });
+
+    const response = await request(app).get(
+      `/api/v1/areas/${climbingArea._id.toString()}/routes`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.meta).toEqual({ count: 1 });
+    expect(response.body.data[0].name).toBe("Sonntagsspaziergang");
+  });
+
   it("filters routes by discipline, grade, style, length, and pitches", async () => {
     await RouteModel.create([
       {

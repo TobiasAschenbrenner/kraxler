@@ -49,7 +49,12 @@ struct AreaDetailSheet: View {
 
         case .loaded(let routes):
             List(routes) { route in
-                RouteRow(route: route)
+                NavigationLink {
+                    RouteDetailScreen(routeID: route.id, apiClient: apiClient)
+                } label: {
+                    RouteRow(route: route)
+                }
+                .accessibilityIdentifier("route-link-\(route.id)")
             }
             .listStyle(.plain)
 

@@ -39,7 +39,7 @@ struct MapScreen: View {
     var body: some View {
         ZStack(alignment: .top) {
             Map(position: $cameraPosition, selection: $selectedAreaID, scope: mapScope) {
-                ForEach(model.areas) { area in
+                ForEach(model.visibleAreas) { area in
                     Marker(
                         area.name,
                         systemImage: area.type.symbolName,
@@ -82,7 +82,7 @@ struct MapScreen: View {
             await model.loadAreas(in: requestedBounds)
         }
         .onChange(of: selectedAreaID) { _, areaID in
-            selectedArea = model.areas.first { $0.id == areaID }
+            selectedArea = model.visibleAreas.first { $0.id == areaID }
         }
         .sheet(item: $selectedArea, onDismiss: {
             selectedAreaID = nil
@@ -120,7 +120,7 @@ struct MapScreen: View {
     private var statusOverlay: some View {
         switch model.loadStatus {
         case .idle, .loaded:
-            if model.areas.isEmpty, model.loadStatus == .loaded {
+            if model.visibleAreas.isEmpty, model.loadStatus == .loaded {
                 statusCard {
                     Label("No climbing areas in this view", systemImage: "map")
                 }
@@ -164,10 +164,10 @@ struct MapScreen: View {
 
     private var areaCountText: String {
         switch model.loadStatus {
-        case .loading where model.areas.isEmpty:
+        case .loading where model.visibleAreas.isEmpty:
             "Finding climbing areas…"
         default:
-            "\(model.areas.count) climbing \(model.areas.count == 1 ? "area" : "areas") in view"
+            "\(model.visibleAreas.count) climbing \(model.visibleAreas.count == 1 ? "area" : "areas") in view"
         }
     }
 }

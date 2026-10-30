@@ -30,6 +30,38 @@ struct KraxlerTests {
     }
 
     @Test
+    func collapsesOverlappingHierarchyIntoOneClimbingAreaMarker() {
+        let location = GeoJSONPoint(
+            type: "Point",
+            coordinates: [2.63823, 48.44704]
+        )
+        let region = ClimbingArea(
+            id: "fontainebleau",
+            name: "Fontainebleau",
+            type: .region,
+            location: location
+        )
+        let climbingArea = ClimbingArea(
+            id: "cuvier",
+            name: "Cuvier",
+            type: .climbingArea,
+            location: location
+        )
+        let sector = ClimbingArea(
+            id: "bas-cuvier",
+            name: "Bas Cuvier",
+            type: .sector,
+            location: location
+        )
+        let model = MapScreenModel(
+            apiClient: APIClient(),
+            initialAreas: [region, sector, climbingArea]
+        )
+
+        #expect(model.visibleAreas == [climbingArea])
+    }
+
+    @Test
     func fetchesAreasInsideMapBounds() async throws {
         let client = makeClient { request in
             #expect(request.url?.path == "/api/v1/areas")
@@ -93,6 +125,45 @@ struct KraxlerTests {
         #expect(routes.first?.grade.value == "6A")
         #expect(routes.first?.styles == [.overhang])
         #expect(routes.first?.lengthMeters == 5)
+    }
+
+    @Test
+    func fetchesCompleteRouteDetails() async throws {
+        let client = makeClient { request in
+            #expect(request.url?.path == "/api/v1/routes/route-1")
+
+            return Self.response(
+                for: request,
+                body: """
+                {
+                  "data": {
+                    "id": "route-1",
+                    "areaId": "area-1",
+                    "name": "La Marie Rose",
+                    "location": { "type": "Point", "coordinates": [2.63823, 48.44704] },
+                    "discipline": "bouldering",
+                    "grade": { "system": "fontainebleau", "value": "6A", "rank": 22 },
+                    "styles": ["overhang"],
+                    "lengthMeters": 5,
+                    "pitches": 1,
+                    "description": "A historic Fontainebleau problem."
+                  }
+                }
+                """
+            )
+        }
+
+        let route = try await client.route(id: "route-1")
+
+        #expect(route.name == "La Marie Rose")
+        #expect(route.grade.value == "6A")
+        #expect(route.discipline == .bouldering)
+        #expect(route.styles == [.overhang])
+        #expect(route.lengthMeters == 5)
+        #expect(route.pitches == 1)
+        #expect(route.description == "A historic Fontainebleau problem.")
+        #expect(route.location.coordinate.latitude == 48.44704)
+        #expect(route.location.coordinate.longitude == 2.63823)
     }
 
     @Test

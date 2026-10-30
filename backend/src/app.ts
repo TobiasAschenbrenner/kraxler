@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { areaRouter } from "./modules/areas/area.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { routeRouter } from "./modules/routes/route.routes.js";
+import { searchRouter } from "./modules/search/search.routes.js";
 
 export const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json({ limit: "100kb" }));
 app.use(healthRouter);
 app.use("/api/v1", areaRouter);
 app.use("/api/v1", routeRouter);
+app.use("/api/v1", searchRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

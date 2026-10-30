@@ -104,6 +104,47 @@
       ]
     },
     {
+      "name": "Search",
+      "item": [
+        {
+          "name": "Search areas and routes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns matching areas and routes\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.areas).to.be.an(\"array\");",
+                  "  pm.expect(body.data.routes).to.be.an(\"array\");",
+                  "  pm.expect(body.meta.areaCount).to.eql(body.data.areas.length);",
+                  "  pm.expect(body.meta.routeCount).to.eql(body.data.routes.length);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/search?q={{searchQuery}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{searchQuery}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Routes",
       "item": [
         {
@@ -219,6 +260,11 @@
     {
       "key": "bbox",
       "value": "2,48,12,50",
+      "type": "string"
+    },
+    {
+      "key": "searchQuery",
+      "value": "Cuvier",
       "type": "string"
     },
     {

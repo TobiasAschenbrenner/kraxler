@@ -6,7 +6,7 @@ import { AreaModel } from "../areas/area.model.js";
 import { RouteModel, type ClimbingRoute } from "./route.model.js";
 import { parseRouteFilters, type RouteFilters } from "./route.query.js";
 
-const serializeRoute = (route: ClimbingRoute & { _id: Types.ObjectId }) => ({
+export const serializeRoute = (route: ClimbingRoute & { _id: Types.ObjectId }) => ({
   id: route._id.toString(),
   areaId: route.areaId.toString(),
   name: route.name,

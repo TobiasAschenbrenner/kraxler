@@ -2,6 +2,12 @@ import MapKit
 import SwiftUI
 
 struct RouteDetailScreen: View {
+    private enum SheetDestination: String, Identifiable {
+        case authentication
+
+        var id: String { rawValue }
+    }
+
     private enum RouteState {
         case loading
         case loaded(ClimbingRoute)
@@ -11,20 +17,31 @@ struct RouteDetailScreen: View {
     private let routeID: String
     private let apiClient: APIClient
     private let loadsRemoteRoute: Bool
+    private let personalRoutesStore: PersonalRoutesStore?
 
+    @Environment(AuthSession.self) private var authSession
     @State private var routeState: RouteState
+    @State private var personalRouteState: PersonalRouteState
+    @State private var isUpdatingPersonalRoute = false
+    @State private var personalRouteErrorMessage: String?
+    @State private var sheetDestination: SheetDestination?
 
     init(
         routeID: String,
         apiClient: APIClient = APIClient(),
         initialRoute: ClimbingRoute? = nil,
-        loadsRemoteRoute: Bool = true
+        loadsRemoteRoute: Bool = true,
+        personalRoutesStore: PersonalRoutesStore? = nil
     ) {
         self.routeID = routeID
         self.apiClient = apiClient
         self.loadsRemoteRoute = loadsRemoteRoute
+        self.personalRoutesStore = personalRoutesStore
         _routeState = State(
             initialValue: initialRoute.map(RouteState.loaded) ?? .loading
+        )
+        _personalRouteState = State(
+            initialValue: .empty(routeID: routeID)
         )
     }
 
@@ -39,6 +56,18 @@ struct RouteDetailScreen: View {
 
                 await loadRoute()
             }
+            .task(id: PersonalRouteRequestKey(
+                routeID: routeID,
+                accountID: authSession.account?.id
+            )) {
+                await loadPersonalRouteState()
+            }
+            .sheet(item: $sheetDestination) { destination in
+                switch destination {
+                case .authentication:
+                    AuthenticationSheet()
+                }
+            }
     }
 
     @ViewBuilder
@@ -49,7 +78,9 @@ struct RouteDetailScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         case .loaded(let route):
-            RouteDetailContent(route: route)
+            RouteDetailContent(route: route) {
+                personalRouteActions(for: route)
+            }
 
         case .failed(let message):
             ContentUnavailableView {
@@ -65,6 +96,81 @@ struct RouteDetailScreen: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+    }
+
+    @ViewBuilder
+    private func personalRouteActions(for route: ClimbingRoute) -> some View {
+        if personalRoutesStore != nil {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    personalRouteButton(
+                        title: personalRouteState.isSaved ? "Saved" : "Save",
+                        systemImage: personalRouteState.isSaved
+                            ? "bookmark.fill"
+                            : "bookmark",
+                        isActive: personalRouteState.isSaved
+                    ) {
+                        await updatePersonalRoute(
+                            route: route,
+                            isSaved: !personalRouteState.isSaved,
+                            isTicked: personalRouteState.isTicked
+                        )
+                    }
+                    .accessibilityIdentifier("route-save-button")
+
+                    personalRouteButton(
+                        title: personalRouteState.isTicked ? "Ticked" : "Tick",
+                        systemImage: personalRouteState.isTicked
+                            ? "checkmark.circle.fill"
+                            : "checkmark.circle",
+                        isActive: personalRouteState.isTicked
+                    ) {
+                        await updatePersonalRoute(
+                            route: route,
+                            isSaved: personalRouteState.isSaved,
+                            isTicked: !personalRouteState.isTicked
+                        )
+                    }
+                    .accessibilityIdentifier("route-tick-button")
+                }
+
+                if isUpdatingPersonalRoute {
+                    ProgressView("Updating your library…")
+                        .font(.caption)
+                }
+
+                if let personalRouteErrorMessage {
+                    Text(personalRouteErrorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("personal-route-error")
+                }
+            }
+        }
+    }
+
+    private func personalRouteButton(
+        title: String,
+        systemImage: String,
+        isActive: Bool,
+        action: @escaping () async -> Void
+    ) -> some View {
+        Button {
+            guard authSession.isAuthenticated else {
+                sheetDestination = .authentication
+                return
+            }
+
+            Task {
+                await action()
+            }
+        } label: {
+            Label(title, systemImage: systemImage)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(isActive ? .orange : .accentColor)
+        .disabled(isUpdatingPersonalRoute)
     }
 
     private var navigationTitle: String {
@@ -91,15 +197,79 @@ struct RouteDetailScreen: View {
             routeState = .failed("The route details could not be loaded.")
         }
     }
+
+    private func loadPersonalRouteState() async {
+        guard
+            let personalRoutesStore,
+            authSession.isAuthenticated
+        else {
+            personalRouteState = .empty(routeID: routeID)
+            personalRouteErrorMessage = nil
+            return
+        }
+
+        do {
+            personalRouteState = try await personalRoutesStore.state(
+                for: routeID,
+                force: true
+            )
+        } catch is CancellationError {
+            return
+        } catch {
+            personalRouteErrorMessage = "Your route status could not be loaded."
+        }
+    }
+
+    private func updatePersonalRoute(
+        route: ClimbingRoute,
+        isSaved: Bool,
+        isTicked: Bool
+    ) async {
+        guard let personalRoutesStore else {
+            return
+        }
+
+        isUpdatingPersonalRoute = true
+        personalRouteErrorMessage = nil
+
+        defer {
+            isUpdatingPersonalRoute = false
+        }
+
+        do {
+            personalRouteState = try await personalRoutesStore.update(
+                route: route,
+                isSaved: isSaved,
+                isTicked: isTicked
+            )
+        } catch {
+            personalRouteErrorMessage = "Your library could not be updated."
+        }
+    }
 }
 
-private struct RouteDetailContent: View {
+private struct PersonalRouteRequestKey: Hashable {
+    let routeID: String
+    let accountID: String?
+}
+
+private struct RouteDetailContent<Actions: View>: View {
     let route: ClimbingRoute
+    let actions: Actions
+
+    init(
+        route: ClimbingRoute,
+        @ViewBuilder actions: () -> Actions
+    ) {
+        self.route = route
+        self.actions = actions()
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
+                actions
                 facts
                 styles
 
@@ -229,6 +399,29 @@ private struct RouteDetailContent: View {
         }
     }
 }
+
+private struct AuthenticationSheet: View {
+    @Environment(AuthSession.self) private var authSession
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            AuthenticationScreen()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close", systemImage: "xmark") {
+                            dismiss()
+                        }
+                    }
+                }
+        }
+        .onChange(of: authSession.account) { _, account in
+            if account != nil {
+                dismiss()
+            }
+        }
+    }
+}
 #if DEBUG
 extension ClimbingRoute {
     static let routeDetailFixture = ClimbingRoute(
@@ -256,6 +449,7 @@ extension ClimbingRoute {
             loadsRemoteRoute: false
         )
     }
+    .environment(AuthSession())
 }
 
 #Preview("Loading error") {
@@ -265,5 +459,6 @@ extension ClimbingRoute {
             apiClient: APIClient(baseURL: URL(string: "http://localhost:1")!)
         )
     }
+    .environment(AuthSession())
 }
 #endif

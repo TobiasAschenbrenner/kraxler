@@ -12,9 +12,13 @@ import SwiftUI
 struct ContentView: View {
     private let apiClient: APIClient
     private let showsRouteDetailFixture: Bool
+    @State private var personalRoutesStore: PersonalRoutesStore
 
     init(apiClient: APIClient = APIClient()) {
         self.apiClient = apiClient
+        _personalRoutesStore = State(
+            initialValue: PersonalRoutesStore(apiClient: apiClient)
+        )
 #if DEBUG
         showsRouteDetailFixture = ProcessInfo.processInfo.arguments.contains(
             "-ui-test-route-detail"
@@ -37,7 +41,10 @@ struct ContentView: View {
             }
 #endif
         } else {
-            MapScreen(apiClient: apiClient)
+            MainTabView(
+                apiClient: apiClient,
+                personalRoutesStore: personalRoutesStore
+            )
         }
     }
 }

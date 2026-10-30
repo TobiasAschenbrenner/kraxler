@@ -22,6 +22,7 @@ struct MapScreen: View {
     )
 
     private let apiClient: APIClient
+    private let personalRoutesStore: PersonalRoutesStore?
     private let loadsRemoteAreas: Bool
 
     @Namespace private var mapScope
@@ -34,11 +35,13 @@ struct MapScreen: View {
 
     init(
         apiClient: APIClient = APIClient(),
+        personalRoutesStore: PersonalRoutesStore? = nil,
         initialAreas: [ClimbingArea] = [],
         initialErrorMessage: String? = nil,
         loadsRemoteAreas: Bool = true
     ) {
         self.apiClient = apiClient
+        self.personalRoutesStore = personalRoutesStore
         self.loadsRemoteAreas = loadsRemoteAreas
         _model = State(
             initialValue: MapScreenModel(
@@ -108,9 +111,16 @@ struct MapScreen: View {
         }) { destination in
             switch destination {
             case .area(let area):
-                AreaDetailSheet(area: area, apiClient: apiClient)
+                AreaDetailSheet(
+                    area: area,
+                    apiClient: apiClient,
+                    personalRoutesStore: personalRoutesStore
+                )
             case .search:
-                MapSearchSheet(apiClient: apiClient) { area in
+                MapSearchSheet(
+                    apiClient: apiClient,
+                    personalRoutesStore: personalRoutesStore
+                ) { area in
                     focusMap(on: area)
                     pendingAreaFromSearch = area
                 }

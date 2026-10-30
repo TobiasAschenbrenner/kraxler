@@ -15,6 +15,7 @@ struct AreaDetailSheet: View {
 
     let area: ClimbingArea
     let apiClient: APIClient
+    let personalRoutesStore: PersonalRoutesStore?
 
     @Environment(\.dismiss) private var dismiss
     @State private var routeState: RouteState = .loading
@@ -84,9 +85,13 @@ struct AreaDetailSheet: View {
         case .loaded(let routes):
             List(routes) { route in
                 NavigationLink {
-                    RouteDetailScreen(routeID: route.id, apiClient: apiClient)
+                    RouteDetailScreen(
+                        routeID: route.id,
+                        apiClient: apiClient,
+                        personalRoutesStore: personalRoutesStore
+                    )
                 } label: {
-                    RouteRow(route: route)
+                    RouteSummaryRow(route: route)
                 }
                 .accessibilityIdentifier("route-link-\(route.id)")
             }
@@ -130,49 +135,7 @@ struct AreaDetailSheet: View {
             : "line.3.horizontal.decrease.circle.fill"
     }
 }
-
 private struct RouteRequestKey: Hashable {
     let areaID: String
     let filters: RouteFilters
-}
-
-private struct RouteRow: View {
-    let route: ClimbingRoute
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(route.name)
-                    .font(.headline)
-
-                Spacer()
-
-                Text(route.grade.value)
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(.tint)
-            }
-
-            HStack(spacing: 12) {
-                Label(route.discipline.rawValue.capitalized, systemImage: "figure.climbing")
-
-                if let lengthMeters = route.lengthMeters {
-                    Label("\(lengthMeters.formatted()) m", systemImage: "ruler")
-                }
-
-                if let pitches = route.pitches, pitches > 1 {
-                    Label("\(pitches) pitches", systemImage: "arrow.up.right")
-                }
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-
-            if !route.styles.isEmpty {
-                Text(route.styles.map(\.displayName).joined(separator: " · "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 6)
-        .accessibilityElement(children: .combine)
-    }
 }

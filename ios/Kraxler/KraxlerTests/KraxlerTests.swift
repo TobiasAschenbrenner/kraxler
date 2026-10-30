@@ -258,6 +258,98 @@ struct KraxlerTests {
     }
 
     @Test
+    func fetchesAuthenticatedPersonalRoutes() async throws {
+        let client = makeClient(authTokenProvider: { "firebase-id-token" }) { request in
+            #expect(request.url?.path == "/api/v1/me/routes")
+            #expect(request.httpMethod == "GET")
+            #expect(
+                request.value(forHTTPHeaderField: "Authorization") ==
+                    "Bearer firebase-id-token"
+            )
+
+            return Self.response(
+                for: request,
+                body: """
+                {
+                  "data": [{
+                    "route": {
+                      "id": "route-1",
+                      "areaId": "area-1",
+                      "name": "La Marie Rose",
+                      "location": { "type": "Point", "coordinates": [2.63823, 48.44704] },
+                      "discipline": "bouldering",
+                      "grade": { "system": "fontainebleau", "value": "6A", "rank": 22 },
+                      "styles": ["overhang"]
+                    },
+                    "routeId": "route-1",
+                    "isSaved": true,
+                    "isTicked": false
+                  }],
+                  "meta": { "count": 1 }
+                }
+                """
+            )
+        }
+
+        let personalRoutes = try await client.personalRoutes()
+
+        #expect(personalRoutes.map(\.route.name) == ["La Marie Rose"])
+        #expect(personalRoutes.first?.isSaved == true)
+        #expect(personalRoutes.first?.isTicked == false)
+    }
+
+    @Test
+    func updatesSavedAndTickedStateTogether() async throws {
+        let client = makeClient(authTokenProvider: { "firebase-id-token" }) { request in
+            #expect(request.url?.path == "/api/v1/me/routes/route-1")
+            #expect(request.httpMethod == "PUT")
+            #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+
+            let body = try #require(request.httpBody)
+            let json = try #require(
+                JSONSerialization.jsonObject(with: body) as? [String: Bool]
+            )
+            #expect(json == ["isSaved": true, "isTicked": true])
+
+            return Self.response(
+                for: request,
+                body: """
+                {
+                  "data": {
+                    "routeId": "route-1",
+                    "isSaved": true,
+                    "isTicked": true,
+                    "tickedAt": "2026-10-30T17:30:00.000Z"
+                  }
+                }
+                """
+            )
+        }
+
+        let state = try await client.updatePersonalRouteState(
+            routeID: "route-1",
+            isSaved: true,
+            isTicked: true
+        )
+
+        #expect(state.isSaved)
+        #expect(state.isTicked)
+        #expect(state.tickedAt == "2026-10-30T17:30:00.000Z")
+    }
+
+    @Test
+    func requiresAuthenticationForPersonalRoutes() async {
+        let client = makeClient { request in
+            Issue.record("An unauthenticated personal route request should not be sent: \(request)")
+            return Self.response(for: request, body: "{}")
+        }
+
+        await #expect(throws: APIClientError.authenticationRequired) {
+            try await client.personalRoutes()
+        }
+    }
+
+    @Test
     func reportsHTTPFailures() async {
         let client = makeClient { request in
             (
@@ -277,6 +369,7 @@ struct KraxlerTests {
     }
 
     private func makeClient(
+        authTokenProvider: @escaping APIClient.AuthTokenProvider = { nil },
         handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
     ) -> APIClient {
         let configuration = URLSessionConfiguration.ephemeral
@@ -285,7 +378,8 @@ struct KraxlerTests {
 
         return APIClient(
             baseURL: URL(string: "http://localhost:3000")!,
-            session: URLSession(configuration: configuration)
+            session: URLSession(configuration: configuration),
+            authTokenProvider: authTokenProvider
         )
     }
 

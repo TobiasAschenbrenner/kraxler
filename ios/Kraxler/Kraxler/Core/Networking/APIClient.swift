@@ -35,6 +35,11 @@ nonisolated struct APIClient: Sendable {
         let data: SearchResults
     }
 
+    private struct PersonalRouteUpdate: Encodable, Sendable {
+        let isSaved: Bool
+        let isTicked: Bool
+    }
+
     let baseURL: URL
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -110,10 +115,97 @@ nonisolated struct APIClient: Sendable {
         return response.data
     }
 
+    func personalRoutes() async throws -> [PersonalRoute] {
+        let url = baseURL.appending(path: "api/v1/me/routes")
+        let response: ListResponse<PersonalRoute> = try await authenticatedRequest(
+            url: url,
+            method: "GET"
+        )
+        return response.data
+    }
+
+    func personalRouteState(routeID: String) async throws -> PersonalRouteState {
+        let url = baseURL.appending(path: "api/v1/me/routes/\(routeID)")
+        let response: ItemResponse<PersonalRouteState> = try await authenticatedRequest(
+            url: url,
+            method: "GET"
+        )
+        return response.data
+    }
+
+    func updatePersonalRouteState(
+        routeID: String,
+        isSaved: Bool,
+        isTicked: Bool
+    ) async throws -> PersonalRouteState {
+        let url = baseURL.appending(path: "api/v1/me/routes/\(routeID)")
+        let response: ItemResponse<PersonalRouteState> = try await authenticatedRequest(
+            url: url,
+            method: "PUT",
+            body: PersonalRouteUpdate(isSaved: isSaved, isTicked: isTicked)
+        )
+        return response.data
+    }
+
     private func get<Response: Decodable & Sendable>(_ url: URL) async throws -> Response {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIClientError.invalidResponse
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            throw APIClientError.httpStatus(httpResponse.statusCode)
+        }
+
+        return try decoder.decode(Response.self, from: data)
+    }
+
+    private func authenticatedRequest<Response: Decodable & Sendable>(
+        url: URL,
+        method: String
+    ) async throws -> Response {
+        try await authenticatedRequest(
+            url: url,
+            method: method,
+            encodedBody: nil
+        )
+    }
+
+    private func authenticatedRequest<Body: Encodable & Sendable, Response: Decodable & Sendable>(
+        url: URL,
+        method: String,
+        body: Body
+    ) async throws -> Response {
+        try await authenticatedRequest(
+            url: url,
+            method: method,
+            encodedBody: try JSONEncoder().encode(body)
+        )
+    }
+
+    private func authenticatedRequest<Response: Decodable & Sendable>(
+        url: URL,
+        method: String,
+        encodedBody: Data?
+    ) async throws -> Response {
+        guard let idToken = try await authTokenProvider() else {
+            throw APIClientError.authenticationRequired
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+
+        if let encodedBody {
+            request.httpBody = encodedBody
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
 
         let (data, response) = try await session.data(for: request)
 

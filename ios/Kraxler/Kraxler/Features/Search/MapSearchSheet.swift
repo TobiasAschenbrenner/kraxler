@@ -9,6 +9,7 @@ struct MapSearchSheet: View {
     }
 
     let apiClient: APIClient
+    let personalRoutesStore: PersonalRoutesStore?
     let onSelectArea: (ClimbingArea) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -81,7 +82,8 @@ struct MapSearchSheet: View {
                                 RouteDetailScreen(
                                     routeID: route.id,
                                     apiClient: apiClient,
-                                    initialRoute: route
+                                    initialRoute: route,
+                                    personalRoutesStore: personalRoutesStore
                                 )
                             } label: {
                                 SearchRouteRow(route: route)

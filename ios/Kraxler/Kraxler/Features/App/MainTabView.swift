@@ -9,6 +9,7 @@ struct MainTabView: View {
     let apiClient: APIClient
     let personalRoutesStore: PersonalRoutesStore
     let climbingRepository: ClimbingRepository
+    let offlineDownloadsStore: OfflineDownloadsStore
 
     @State private var selectedTab: AppTab = .map
 
@@ -17,7 +18,8 @@ struct MainTabView: View {
             Tab("Map", systemImage: "map", value: .map) {
                 MapScreen(
                     personalRoutesStore: personalRoutesStore,
-                    climbingRepository: climbingRepository
+                    climbingRepository: climbingRepository,
+                    offlineDownloadsStore: offlineDownloadsStore
                 )
             }
 
@@ -30,5 +32,8 @@ struct MainTabView: View {
             }
         }
         .tint(.orange)
+        .task {
+            offlineDownloadsStore.load()
+        }
     }
 }

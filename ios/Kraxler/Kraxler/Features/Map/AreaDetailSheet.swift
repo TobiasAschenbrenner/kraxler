@@ -16,6 +16,7 @@ struct AreaDetailSheet: View {
     let area: ClimbingArea
     let climbingRepository: ClimbingRepository
     let personalRoutesStore: PersonalRoutesStore?
+    let offlineDownloadsStore: OfflineDownloadsStore?
 
     @Environment(\.dismiss) private var dismiss
     @State private var routeState: RouteState = .loading
@@ -34,7 +35,9 @@ struct AreaDetailSheet: View {
                         }
                     }
 
-                    ToolbarItem(placement: .primaryAction) {
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        offlineDownloadControl
+
                         Button("Filter", systemImage: filterSymbolName) {
                             sheetDestination = .filters
                         }
@@ -56,7 +59,95 @@ struct AreaDetailSheet: View {
     }
 
     @ViewBuilder
+    private var offlineDownloadControl: some View {
+        if let offlineDownloadsStore {
+            let operation = offlineDownloadsStore.operation(for: area.id)
+
+            if operation.isInProgress {
+                ProgressView()
+                    .accessibilityLabel(
+                        operation == .removing
+                            ? "Removing downloaded area"
+                            : "Downloading area"
+                    )
+                    .accessibilityIdentifier("offline-download-progress")
+            } else if offlineDownloadsStore.manifest(for: area.id) != nil {
+                Menu {
+                    Button("Update download", systemImage: "arrow.clockwise") {
+                        Task {
+                            await offlineDownloadsStore.download(area)
+                        }
+                    }
+
+                    Button(
+                        "Remove download",
+                        systemImage: "trash",
+                        role: .destructive
+                    ) {
+                        offlineDownloadsStore.remove(areaID: area.id)
+                    }
+                } label: {
+                    Label("Offline options", systemImage: "arrow.down.circle.fill")
+                }
+                .accessibilityIdentifier("offline-download-menu")
+            } else {
+                Button("Download area", systemImage: "arrow.down.circle") {
+                    Task {
+                        await offlineDownloadsStore.download(area)
+                    }
+                }
+                .accessibilityIdentifier("offline-download-button")
+            }
+        }
+    }
+
+    @ViewBuilder
     private var content: some View {
+        VStack(spacing: 0) {
+            offlineDownloadStatus
+            routeContent
+        }
+    }
+
+    @ViewBuilder
+    private var offlineDownloadStatus: some View {
+        if let offlineDownloadsStore {
+            switch offlineDownloadsStore.operation(for: area.id) {
+            case .failed(let message):
+                Label(message, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.red.opacity(0.08))
+                    .accessibilityIdentifier("offline-download-error")
+
+            case .idle, .downloading, .removing:
+                if let manifest = offlineDownloadsStore.manifest(for: area.id) {
+                    Label {
+                        Text(
+                            "Available offline · \(manifest.routeCount) "
+                                + "\(manifest.routeCount == 1 ? "route" : "routes") · "
+                                + "Updated \(manifest.refreshedAt.formatted(date: .abbreviated, time: .shortened))"
+                        )
+                    } icon: {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                    .font(.caption)
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.green.opacity(0.08))
+                    .accessibilityIdentifier("offline-download-status")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var routeContent: some View {
         switch routeState {
         case .loading:
             ProgressView("Loading routes…")

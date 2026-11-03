@@ -15,6 +15,7 @@ struct ContentView: View {
     private let climbingRepository: ClimbingRepository
     private let showsRouteDetailFixture: Bool
     @State private var personalRoutesStore: PersonalRoutesStore
+    @State private var offlineDownloadsStore: OfflineDownloadsStore
 
     init(
         apiClient: APIClient = APIClient(),
@@ -25,6 +26,11 @@ struct ContentView: View {
         climbingRepository = ClimbingRepository(
             apiClient: apiClient,
             offlineStore: offlineStore
+        )
+        _offlineDownloadsStore = State(
+            initialValue: OfflineDownloadsStore(
+                climbingRepository: climbingRepository
+            )
         )
         _personalRoutesStore = State(
             initialValue: PersonalRoutesStore(apiClient: apiClient)
@@ -54,7 +60,8 @@ struct ContentView: View {
             MainTabView(
                 apiClient: apiClient,
                 personalRoutesStore: personalRoutesStore,
-                climbingRepository: climbingRepository
+                climbingRepository: climbingRepository,
+                offlineDownloadsStore: offlineDownloadsStore
             )
         }
     }

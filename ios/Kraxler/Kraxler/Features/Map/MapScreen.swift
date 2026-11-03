@@ -23,6 +23,7 @@ struct MapScreen: View {
 
     private let personalRoutesStore: PersonalRoutesStore?
     private let climbingRepository: ClimbingRepository
+    private let offlineDownloadsStore: OfflineDownloadsStore?
     private let loadsRemoteAreas: Bool
 
     @Namespace private var mapScope
@@ -38,6 +39,7 @@ struct MapScreen: View {
         apiClient: APIClient = APIClient(),
         personalRoutesStore: PersonalRoutesStore? = nil,
         climbingRepository: ClimbingRepository? = nil,
+        offlineDownloadsStore: OfflineDownloadsStore? = nil,
         initialAreas: [ClimbingArea] = [],
         initialErrorMessage: String? = nil,
         loadsRemoteAreas: Bool = true
@@ -45,6 +47,7 @@ struct MapScreen: View {
         self.personalRoutesStore = personalRoutesStore
         let repository = climbingRepository ?? ClimbingRepository(apiClient: apiClient)
         self.climbingRepository = repository
+        self.offlineDownloadsStore = offlineDownloadsStore
         self.loadsRemoteAreas = loadsRemoteAreas
         _model = State(
             initialValue: MapScreenModel(
@@ -123,7 +126,8 @@ struct MapScreen: View {
                 AreaDetailSheet(
                     area: area,
                     climbingRepository: climbingRepository,
-                    personalRoutesStore: personalRoutesStore
+                    personalRoutesStore: personalRoutesStore,
+                    offlineDownloadsStore: offlineDownloadsStore
                 )
             case .search:
                 MapSearchSheet(

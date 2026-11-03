@@ -552,6 +552,60 @@ struct KraxlerTests {
         #expect(try store.route(id: Self.offlineRoute.id) == Self.offlineRoute)
     }
 
+    @Test
+    func managesDownloadAndRemovalState() async throws {
+        let store = try makeOfflineStore()
+        let client = makeClient { request in
+            Self.response(
+                for: request,
+                body: """
+                {
+                  "data": [{
+                    "id": "route-1",
+                    "areaId": "area-1",
+                    "name": "La Marie Rose",
+                    "location": { "type": "Point", "coordinates": [2.63823, 48.44704] },
+                    "discipline": "bouldering",
+                    "grade": { "system": "fontainebleau", "value": "6A", "rank": 22 },
+                    "styles": ["overhang"]
+                  }],
+                  "meta": { "count": 1 }
+                }
+                """
+            )
+        }
+        let repository = ClimbingRepository(apiClient: client, offlineStore: store)
+        let downloadsStore = OfflineDownloadsStore(climbingRepository: repository)
+
+        await downloadsStore.download(Self.offlineArea)
+
+        #expect(downloadsStore.operation(for: Self.offlineArea.id) == .idle)
+        #expect(downloadsStore.manifest(for: Self.offlineArea.id)?.routeCount == 1)
+
+        downloadsStore.remove(areaID: Self.offlineArea.id)
+
+        #expect(downloadsStore.operation(for: Self.offlineArea.id) == .idle)
+        #expect(downloadsStore.manifest(for: Self.offlineArea.id) == nil)
+    }
+
+    @Test
+    func reportsFailedAreaDownloads() async throws {
+        let store = try makeOfflineStore()
+        let repository = ClimbingRepository(
+            apiClient: makeFailingClient(),
+            offlineStore: store
+        )
+        let downloadsStore = OfflineDownloadsStore(climbingRepository: repository)
+
+        await downloadsStore.download(Self.offlineArea)
+
+        guard case .failed = downloadsStore.operation(for: Self.offlineArea.id) else {
+            Issue.record("A failed download should publish a failure state.")
+            return
+        }
+        #expect(downloadsStore.manifest(for: Self.offlineArea.id) == nil)
+    }
+
     private func makeOfflineStore() throws -> OfflineClimbingStore {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(

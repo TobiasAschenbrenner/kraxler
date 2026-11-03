@@ -8,6 +8,7 @@
 import CoreLocation
 import Foundation
 import MapKit
+import SwiftData
 import Testing
 @testable import Kraxler
 
@@ -368,6 +369,99 @@ struct KraxlerTests {
         }
     }
 
+    @Test
+    func storesAndReadsAnOfflineAreaPackage() throws {
+        let store = try makeOfflineStore()
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+
+        try store.save(
+            area: Self.offlineArea,
+            routes: [Self.offlineRoute],
+            at: date
+        )
+
+        let storedManifest = try store.manifest(for: Self.offlineArea.id)
+        let manifest = try #require(storedManifest)
+        #expect(manifest.area == Self.offlineArea)
+        #expect(manifest.routeCount == 1)
+        #expect(manifest.downloadedAt == date)
+        #expect(manifest.refreshedAt == date)
+        #expect(try store.routes(for: Self.offlineArea.id) == [Self.offlineRoute])
+        #expect(try store.route(id: Self.offlineRoute.id) == Self.offlineRoute)
+    }
+
+    @Test
+    func replacesAnExistingOfflineAreaPackageOnUpdate() throws {
+        let store = try makeOfflineStore()
+        let downloadedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let refreshedAt = downloadedAt.addingTimeInterval(3_600)
+        let replacementRoute = ClimbingRoute(
+            id: "route-2",
+            areaId: Self.offlineArea.id,
+            name: "Le Carnage",
+            location: Self.offlineRoute.location,
+            discipline: .bouldering,
+            grade: .init(system: .fontainebleau, value: "7B+", rank: 30),
+            styles: [.overhang],
+            lengthMeters: 4,
+            pitches: 1,
+            description: nil
+        )
+
+        try store.save(
+            area: Self.offlineArea,
+            routes: [Self.offlineRoute],
+            at: downloadedAt
+        )
+        try store.save(
+            area: Self.offlineArea,
+            routes: [replacementRoute],
+            at: refreshedAt
+        )
+
+        let storedManifest = try store.manifest(for: Self.offlineArea.id)
+        let manifest = try #require(storedManifest)
+        #expect(manifest.downloadedAt == downloadedAt)
+        #expect(manifest.refreshedAt == refreshedAt)
+        #expect(try store.routes(for: Self.offlineArea.id) == [replacementRoute])
+        #expect(try store.route(id: Self.offlineRoute.id) == nil)
+    }
+
+    @Test
+    func removesAnOfflineAreaAndItsRoutes() throws {
+        let store = try makeOfflineStore()
+        try store.save(area: Self.offlineArea, routes: [Self.offlineRoute])
+
+        try store.remove(areaID: Self.offlineArea.id)
+
+        #expect(try store.manifest(for: Self.offlineArea.id) == nil)
+        #expect(try store.route(id: Self.offlineRoute.id) == nil)
+    }
+
+    @Test
+    func searchesDownloadedAreasAndRoutes() throws {
+        let store = try makeOfflineStore()
+        try store.save(area: Self.offlineArea, routes: [Self.offlineRoute])
+
+        let areaResults = try store.search("cuvier")
+        let routeResults = try store.search("marie")
+
+        #expect(areaResults.areas == [Self.offlineArea])
+        #expect(areaResults.routes.isEmpty)
+        #expect(routeResults.areas.isEmpty)
+        #expect(routeResults.routes == [Self.offlineRoute])
+    }
+
+    private func makeOfflineStore() throws -> OfflineClimbingStore {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(
+            for: OfflineAreaRecord.self,
+            OfflineRouteRecord.self,
+            configurations: configuration
+        )
+        return OfflineClimbingStore(modelContainer: container)
+    }
+
     private func makeClient(
         authTokenProvider: @escaping APIClient.AuthTokenProvider = { nil },
         handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
@@ -397,6 +491,32 @@ struct KraxlerTests {
             Data(body.utf8)
         )
     }
+
+    nonisolated private static let offlineArea = ClimbingArea(
+        id: "area-1",
+        name: "Bas Cuvier",
+        type: .climbingArea,
+        location: GeoJSONPoint(
+            type: "Point",
+            coordinates: [2.63823, 48.44704]
+        )
+    )
+
+    nonisolated private static let offlineRoute = ClimbingRoute(
+        id: "route-1",
+        areaId: "area-1",
+        name: "La Marie Rose",
+        location: GeoJSONPoint(
+            type: "Point",
+            coordinates: [2.63823, 48.44704]
+        ),
+        discipline: .bouldering,
+        grade: .init(system: .fontainebleau, value: "6A", rank: 22),
+        styles: [.overhang],
+        lengthMeters: 5,
+        pitches: 1,
+        description: "A historic Fontainebleau problem."
+    )
 }
 
 private final class URLProtocolStub: URLProtocol, @unchecked Sendable {

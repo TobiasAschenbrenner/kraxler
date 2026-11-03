@@ -306,7 +306,7 @@ struct KraxlerTests {
             #expect(request.httpMethod == "PUT")
             #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
 
-            let body = try #require(request.httpBody)
+            let body = try #require(Self.bodyData(from: request))
             let json = try #require(
                 JSONSerialization.jsonObject(with: body) as? [String: Bool]
             )
@@ -650,6 +650,38 @@ struct KraxlerTests {
             )!,
             Data(body.utf8)
         )
+    }
+
+    nonisolated private static func bodyData(from request: URLRequest) -> Data? {
+        if let body = request.httpBody {
+            return body
+        }
+
+        guard let stream = request.httpBodyStream else {
+            return nil
+        }
+
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        let bufferSize = 1_024
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while true {
+            let bytesRead = stream.read(buffer, maxLength: bufferSize)
+
+            if bytesRead < 0 {
+                return nil
+            }
+
+            if bytesRead == 0 {
+                return data.isEmpty ? nil : data
+            }
+
+            data.append(buffer, count: bytesRead)
+        }
     }
 
     nonisolated private static let offlineArea = ClimbingArea(

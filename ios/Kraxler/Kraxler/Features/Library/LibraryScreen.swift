@@ -10,6 +10,7 @@ struct LibraryScreen: View {
 
     let apiClient: APIClient
     let personalRoutesStore: PersonalRoutesStore
+    let climbingRepository: ClimbingRepository
 
     @Environment(AuthSession.self) private var authSession
     @State private var selectedSection: LibrarySection = .saved
@@ -86,7 +87,7 @@ struct LibraryScreen: View {
                 NavigationLink {
                     RouteDetailScreen(
                         routeID: personalRoute.routeId,
-                        apiClient: apiClient,
+                        climbingRepository: climbingRepository,
                         initialRoute: personalRoute.route,
                         personalRoutesStore: personalRoutesStore
                     )

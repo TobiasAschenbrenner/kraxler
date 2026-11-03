@@ -9,12 +9,12 @@ struct AreaDetailSheet: View {
 
     private enum RouteState {
         case loading
-        case loaded([ClimbingRoute])
+        case loaded([ClimbingRoute], ClimbingContentSource)
         case failed(String)
     }
 
     let area: ClimbingArea
-    let apiClient: APIClient
+    let climbingRepository: ClimbingRepository
     let personalRoutesStore: PersonalRoutesStore?
 
     @Environment(\.dismiss) private var dismiss
@@ -62,7 +62,7 @@ struct AreaDetailSheet: View {
             ProgressView("Loading routes…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-        case .loaded(let routes) where routes.isEmpty:
+        case .loaded(let routes, _) where routes.isEmpty:
             if filters.isEmpty {
                 ContentUnavailableView(
                     "No routes yet",
@@ -82,18 +82,27 @@ struct AreaDetailSheet: View {
                 }
             }
 
-        case .loaded(let routes):
-            List(routes) { route in
-                NavigationLink {
-                    RouteDetailScreen(
-                        routeID: route.id,
-                        apiClient: apiClient,
-                        personalRoutesStore: personalRoutesStore
-                    )
-                } label: {
-                    RouteSummaryRow(route: route)
+        case .loaded(let routes, let source):
+            List {
+                if source == .offline {
+                    Label("Showing downloaded routes", systemImage: "arrow.down.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("offline-routes-indicator")
                 }
-                .accessibilityIdentifier("route-link-\(route.id)")
+
+                ForEach(routes) { route in
+                    NavigationLink {
+                        RouteDetailScreen(
+                            routeID: route.id,
+                            climbingRepository: climbingRepository,
+                            personalRoutesStore: personalRoutesStore
+                        )
+                    } label: {
+                        RouteSummaryRow(route: route)
+                    }
+                    .accessibilityIdentifier("route-link-\(route.id)")
+                }
             }
             .listStyle(.plain)
 
@@ -117,11 +126,14 @@ struct AreaDetailSheet: View {
         routeState = .loading
 
         do {
-            let routes = try await apiClient.routes(for: area.id, filters: filters)
+            let response = try await climbingRepository.routes(
+                for: area.id,
+                filters: filters
+            )
             guard !Task.isCancelled else {
                 return
             }
-            routeState = .loaded(routes)
+            routeState = .loaded(response.value, response.source)
         } catch is CancellationError {
             return
         } catch {

@@ -12,7 +12,7 @@ import SwiftUI
 
 struct ContentView: View {
     private let apiClient: APIClient
-    private let offlineStore: OfflineClimbingStore
+    private let climbingRepository: ClimbingRepository
     private let showsRouteDetailFixture: Bool
     @State private var personalRoutesStore: PersonalRoutesStore
 
@@ -21,7 +21,11 @@ struct ContentView: View {
         modelContainer: ModelContainer
     ) {
         self.apiClient = apiClient
-        offlineStore = OfflineClimbingStore(modelContainer: modelContainer)
+        let offlineStore = OfflineClimbingStore(modelContainer: modelContainer)
+        climbingRepository = ClimbingRepository(
+            apiClient: apiClient,
+            offlineStore: offlineStore
+        )
         _personalRoutesStore = State(
             initialValue: PersonalRoutesStore(apiClient: apiClient)
         )
@@ -50,7 +54,7 @@ struct ContentView: View {
             MainTabView(
                 apiClient: apiClient,
                 personalRoutesStore: personalRoutesStore,
-                offlineStore: offlineStore
+                climbingRepository: climbingRepository
             )
         }
     }

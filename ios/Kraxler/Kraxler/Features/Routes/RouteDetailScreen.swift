@@ -10,12 +10,12 @@ struct RouteDetailScreen: View {
 
     private enum RouteState {
         case loading
-        case loaded(ClimbingRoute)
+        case loaded(ClimbingRoute, ClimbingContentSource)
         case failed(String)
     }
 
     private let routeID: String
-    private let apiClient: APIClient
+    private let climbingRepository: ClimbingRepository
     private let loadsRemoteRoute: Bool
     private let personalRoutesStore: PersonalRoutesStore?
 
@@ -29,16 +29,17 @@ struct RouteDetailScreen: View {
     init(
         routeID: String,
         apiClient: APIClient = APIClient(),
+        climbingRepository: ClimbingRepository? = nil,
         initialRoute: ClimbingRoute? = nil,
         loadsRemoteRoute: Bool = true,
         personalRoutesStore: PersonalRoutesStore? = nil
     ) {
         self.routeID = routeID
-        self.apiClient = apiClient
+        self.climbingRepository = climbingRepository ?? ClimbingRepository(apiClient: apiClient)
         self.loadsRemoteRoute = loadsRemoteRoute
         self.personalRoutesStore = personalRoutesStore
         _routeState = State(
-            initialValue: initialRoute.map(RouteState.loaded) ?? .loading
+            initialValue: initialRoute.map { RouteState.loaded($0, .remote) } ?? .loading
         )
         _personalRouteState = State(
             initialValue: .empty(routeID: routeID)
@@ -77,8 +78,8 @@ struct RouteDetailScreen: View {
             ProgressView("Loading route…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-        case .loaded(let route):
-            RouteDetailContent(route: route) {
+        case .loaded(let route, let source):
+            RouteDetailContent(route: route, source: source) {
                 personalRouteActions(for: route)
             }
 
@@ -175,7 +176,7 @@ struct RouteDetailScreen: View {
 
     private var navigationTitle: String {
         switch routeState {
-        case .loaded(let route):
+        case .loaded(let route, _):
             route.name
         case .loading, .failed:
             "Route details"
@@ -186,11 +187,11 @@ struct RouteDetailScreen: View {
         routeState = .loading
 
         do {
-            let route = try await apiClient.route(id: routeID)
+            let response = try await climbingRepository.route(id: routeID)
             guard !Task.isCancelled else {
                 return
             }
-            routeState = .loaded(route)
+            routeState = .loaded(response.value, response.source)
         } catch is CancellationError {
             return
         } catch {
@@ -255,13 +256,16 @@ private struct PersonalRouteRequestKey: Hashable {
 
 private struct RouteDetailContent<Actions: View>: View {
     let route: ClimbingRoute
+    let source: ClimbingContentSource
     let actions: Actions
 
     init(
         route: ClimbingRoute,
+        source: ClimbingContentSource,
         @ViewBuilder actions: () -> Actions
     ) {
         self.route = route
+        self.source = source
         self.actions = actions()
     }
 
@@ -269,6 +273,12 @@ private struct RouteDetailContent<Actions: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
+                if source == .offline {
+                    Label("Available offline", systemImage: "arrow.down.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("offline-route-indicator")
+                }
                 actions
                 facts
                 styles

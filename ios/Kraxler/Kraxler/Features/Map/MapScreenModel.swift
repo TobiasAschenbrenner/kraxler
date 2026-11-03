@@ -12,11 +12,12 @@ final class MapScreenModel {
         case failed(String)
     }
 
-    private let apiClient: APIClient
+    private let climbingRepository: ClimbingRepository
     private var lastLoadedBounds: MapBounds?
 
     private(set) var areas: [ClimbingArea]
     private(set) var loadStatus: LoadStatus
+    private(set) var contentSource: ClimbingContentSource?
 
     var visibleAreas: [ClimbingArea] {
         var areasByLocation: [MapLocationKey: ClimbingArea] = [:]
@@ -44,8 +45,27 @@ final class MapScreenModel {
         initialAreas: [ClimbingArea] = [],
         initialErrorMessage: String? = nil
     ) {
-        self.apiClient = apiClient
+        climbingRepository = ClimbingRepository(apiClient: apiClient)
         areas = initialAreas
+        contentSource = initialAreas.isEmpty ? nil : .remote
+
+        if let initialErrorMessage {
+            loadStatus = .failed(initialErrorMessage)
+        } else if initialAreas.isEmpty {
+            loadStatus = .idle
+        } else {
+            loadStatus = .loaded
+        }
+    }
+
+    init(
+        climbingRepository: ClimbingRepository,
+        initialAreas: [ClimbingArea] = [],
+        initialErrorMessage: String? = nil
+    ) {
+        self.climbingRepository = climbingRepository
+        areas = initialAreas
+        contentSource = initialAreas.isEmpty ? nil : .remote
 
         if let initialErrorMessage {
             loadStatus = .failed(initialErrorMessage)
@@ -66,12 +86,13 @@ final class MapScreenModel {
         }
 
         do {
-            let loadedAreas = try await apiClient.areas(in: bounds)
+            let response = try await climbingRepository.areas(in: bounds)
             guard !Task.isCancelled else {
                 return
             }
 
-            areas = loadedAreas
+            areas = response.value
+            contentSource = response.source
             lastLoadedBounds = bounds
             loadStatus = .loaded
         } catch is CancellationError {

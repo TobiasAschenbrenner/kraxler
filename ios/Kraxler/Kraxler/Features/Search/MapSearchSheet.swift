@@ -4,11 +4,11 @@ struct MapSearchSheet: View {
     private enum SearchState {
         case idle
         case loading
-        case loaded(SearchResults)
+        case loaded(SearchResults, ClimbingContentSource)
         case failed(String)
     }
 
-    let apiClient: APIClient
+    let climbingRepository: ClimbingRepository
     let personalRoutesStore: PersonalRoutesStore?
     let onSelectArea: (ClimbingArea) -> Void
 
@@ -55,11 +55,18 @@ struct MapSearchSheet: View {
             ProgressView("Searching…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-        case .loaded(let results) where results.isEmpty:
+        case .loaded(let results, _) where results.isEmpty:
             ContentUnavailableView.search(text: query)
 
-        case .loaded(let results):
+        case .loaded(let results, let source):
             List {
+                if source == .offline {
+                    Label("Searching downloaded areas", systemImage: "arrow.down.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("offline-search-indicator")
+                }
+
                 if !results.areas.isEmpty {
                     Section("Areas") {
                         ForEach(results.areas) { area in
@@ -81,7 +88,7 @@ struct MapSearchSheet: View {
                             NavigationLink {
                                 RouteDetailScreen(
                                     routeID: route.id,
-                                    apiClient: apiClient,
+                                    climbingRepository: climbingRepository,
                                     initialRoute: route,
                                     personalRoutesStore: personalRoutesStore
                                 )
@@ -136,11 +143,11 @@ struct MapSearchSheet: View {
         searchState = .loading
 
         do {
-            let results = try await apiClient.search(query)
+            let response = try await climbingRepository.search(query)
             guard !Task.isCancelled else {
                 return
             }
-            searchState = .loaded(results)
+            searchState = .loaded(response.value, response.source)
         } catch is CancellationError {
             return
         } catch {

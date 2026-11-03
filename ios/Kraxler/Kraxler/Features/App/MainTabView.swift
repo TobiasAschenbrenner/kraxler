@@ -8,7 +8,7 @@ struct MainTabView: View {
 
     let apiClient: APIClient
     let personalRoutesStore: PersonalRoutesStore
-    let offlineStore: OfflineClimbingStore
+    let climbingRepository: ClimbingRepository
 
     @State private var selectedTab: AppTab = .map
 
@@ -16,16 +16,16 @@ struct MainTabView: View {
         TabView(selection: $selectedTab) {
             Tab("Map", systemImage: "map", value: .map) {
                 MapScreen(
-                    apiClient: apiClient,
                     personalRoutesStore: personalRoutesStore,
-                    offlineStore: offlineStore
+                    climbingRepository: climbingRepository
                 )
             }
 
             Tab("Library", systemImage: "bookmark", value: .library) {
                 LibraryScreen(
                     apiClient: apiClient,
-                    personalRoutesStore: personalRoutesStore
+                    personalRoutesStore: personalRoutesStore,
+                    climbingRepository: climbingRepository
                 )
             }
         }

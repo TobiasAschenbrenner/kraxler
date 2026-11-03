@@ -21,9 +21,8 @@ struct MapScreen: View {
         span: MKCoordinateSpan(latitudeDelta: 2.1, longitudeDelta: 10.5)
     )
 
-    private let apiClient: APIClient
     private let personalRoutesStore: PersonalRoutesStore?
-    private let offlineStore: OfflineClimbingStore?
+    private let climbingRepository: ClimbingRepository
     private let loadsRemoteAreas: Bool
 
     @Namespace private var mapScope
@@ -38,18 +37,18 @@ struct MapScreen: View {
     init(
         apiClient: APIClient = APIClient(),
         personalRoutesStore: PersonalRoutesStore? = nil,
-        offlineStore: OfflineClimbingStore? = nil,
+        climbingRepository: ClimbingRepository? = nil,
         initialAreas: [ClimbingArea] = [],
         initialErrorMessage: String? = nil,
         loadsRemoteAreas: Bool = true
     ) {
-        self.apiClient = apiClient
         self.personalRoutesStore = personalRoutesStore
-        self.offlineStore = offlineStore
+        let repository = climbingRepository ?? ClimbingRepository(apiClient: apiClient)
+        self.climbingRepository = repository
         self.loadsRemoteAreas = loadsRemoteAreas
         _model = State(
             initialValue: MapScreenModel(
-                apiClient: apiClient,
+                climbingRepository: repository,
                 initialAreas: initialAreas,
                 initialErrorMessage: initialErrorMessage
             )
@@ -123,12 +122,12 @@ struct MapScreen: View {
             case .area(let area):
                 AreaDetailSheet(
                     area: area,
-                    apiClient: apiClient,
+                    climbingRepository: climbingRepository,
                     personalRoutesStore: personalRoutesStore
                 )
             case .search:
                 MapSearchSheet(
-                    apiClient: apiClient,
+                    climbingRepository: climbingRepository,
                     personalRoutesStore: personalRoutesStore
                 ) { area in
                     focusMap(on: area)
@@ -198,8 +197,16 @@ struct MapScreen: View {
     @ViewBuilder
     private var statusOverlay: some View {
         switch model.loadStatus {
-        case .idle, .loaded:
-            if model.visibleAreas.isEmpty, model.loadStatus == .loaded {
+        case .idle:
+            EmptyView()
+
+        case .loaded:
+            if model.contentSource == .offline {
+                statusCard {
+                    Label("Showing downloaded areas", systemImage: "arrow.down.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                }
+            } else if model.visibleAreas.isEmpty {
                 statusCard {
                     Label("No climbing areas in this view", systemImage: "map")
                 }

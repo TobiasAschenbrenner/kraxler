@@ -19,9 +19,17 @@ final class KraxlerUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Kraxler"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["2 climbing areas in view"].waitForExistence(timeout: 15))
+        let locationControl = app.descendants(matching: .any)
+            .matching(
+                NSPredicate(
+                    format: "identifier IN %@",
+                    ["map-user-location-button", "map-location-permission-button"]
+                )
+            )
+            .firstMatch
         XCTAssertTrue(
-            app.descendants(matching: .any)["map-user-location-button"]
-                .waitForExistence(timeout: 5)
+            locationControl.waitForExistence(timeout: 5),
+            "The map should expose either location permission or recentering."
         )
     }
 

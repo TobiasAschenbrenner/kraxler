@@ -31,17 +31,70 @@ struct LibraryScreen: View {
 
     private var libraryContent: some View {
         VStack(spacing: 0) {
-            Picker("Library section", selection: $selectedSection) {
-                ForEach(LibrarySection.allCases) { section in
-                    Text(section.rawValue).tag(section)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding()
-            .accessibilityIdentifier("library-section-picker")
+            librarySummary
 
             routeList
         }
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private var librarySummary: some View {
+        HStack(spacing: 12) {
+            librarySectionButton(
+                .saved,
+                systemImage: "bookmark.fill",
+                color: KraxlerDesign.accent
+            )
+
+            librarySectionButton(
+                .ticked,
+                systemImage: "checkmark.circle.fill",
+                color: KraxlerDesign.success
+            )
+        }
+        .padding(.horizontal, KraxlerDesign.pagePadding)
+        .padding(.top, 8)
+        .padding(.bottom, 14)
+        .accessibilityIdentifier("library-section-picker")
+    }
+
+    private func librarySectionButton(
+        _ section: LibrarySection,
+        systemImage: String,
+        color: Color
+    ) -> some View {
+        let isSelected = selectedSection == section
+
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = section
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? .white : color)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(section.rawValue)
+                        .font(.subheadline.weight(.semibold))
+                    Text(routeCount(for: section).formatted())
+                        .font(.title2.bold().monospacedDigit())
+                }
+
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(isSelected ? .white : .primary)
+            .padding(14)
+            .frame(maxWidth: .infinity)
+            .background(
+                isSelected ? color.gradient : Color(.secondarySystemGroupedBackground).gradient,
+                in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(section.rawValue), \(routeCount(for: section)) routes")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     @ViewBuilder
@@ -79,6 +132,7 @@ struct LibraryScreen: View {
                 .accessibilityIdentifier("library-route-\(personalRoute.routeId)")
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .refreshable {
                 await personalRoutesStore.load(force: true)
             }
@@ -110,6 +164,17 @@ struct LibraryScreen: View {
         }
     }
 
+    private func routeCount(for section: LibrarySection) -> Int {
+        personalRoutesStore.routes.count { personalRoute in
+            switch section {
+            case .saved:
+                personalRoute.isSaved
+            case .ticked:
+                personalRoute.isTicked
+            }
+        }
+    }
+
     private var emptyDescription: String {
         switch selectedSection {
         case .saved:
@@ -118,5 +183,4 @@ struct LibraryScreen: View {
             "Mark a route as ticked after you complete it."
         }
     }
-
 }

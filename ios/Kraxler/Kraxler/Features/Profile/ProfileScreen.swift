@@ -10,11 +10,14 @@ struct ProfileScreen: View {
     var body: some View {
         NavigationStack {
             Form {
+                identitySection
                 accountSection
                 downloadsSection
                 appearanceSection
                 aboutSection
             }
+            .scrollContentBackground(.hidden)
+            .background(KraxlerScreenBackground())
             .navigationTitle("Profile")
             .alert(
                 "Sign out failed",
@@ -31,6 +34,36 @@ struct ProfileScreen: View {
         .accessibilityIdentifier("profile-screen")
     }
 
+    private var identitySection: some View {
+        Section {
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(KraxlerDesign.accent.gradient)
+
+                    Image(systemName: "person.fill")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 58, height: 58)
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Climber")
+                        .font(.title3.bold())
+
+                    Text(authSession.account?.email ?? "Not available")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .accessibilityIdentifier("profile-email")
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        .listRowBackground(KraxlerDesign.accent.opacity(0.1))
+    }
+
     private var downloadsSection: some View {
         Section("Offline") {
             NavigationLink {
@@ -38,10 +71,17 @@ struct ProfileScreen: View {
                     offlineDownloadsStore: offlineDownloadsStore
                 )
             } label: {
-                LabeledContent(
-                    "Downloaded areas",
-                    value: offlineDownloadsStore.downloadedManifests.count.formatted()
-                )
+                HStack {
+                    KraxlerSettingsLabel(
+                        title: "Downloaded areas",
+                        systemImage: "arrow.down.circle.fill"
+                    )
+
+                    Spacer()
+
+                    Text(offlineDownloadsStore.downloadedManifests.count.formatted())
+                        .foregroundStyle(.secondary)
+                }
             }
             .accessibilityIdentifier("profile-downloads")
         }
@@ -49,22 +89,18 @@ struct ProfileScreen: View {
 
     private var accountSection: some View {
         Section("Account") {
-            LabeledContent(
-                "Email",
-                value: authSession.account?.email ?? "Not available"
-            )
-            .accessibilityIdentifier("profile-email")
-
-            Button(
-                "Sign out",
-                systemImage: "rectangle.portrait.and.arrow.right",
-                role: .destructive
-            ) {
+            Button(role: .destructive) {
                 do {
                     try authSession.signOut()
                 } catch {
                     signOutErrorMessage = error.localizedDescription
                 }
+            } label: {
+                KraxlerSettingsLabel(
+                    title: "Sign out",
+                    systemImage: "rectangle.portrait.and.arrow.right",
+                    color: .red
+                )
             }
             .accessibilityIdentifier("profile-sign-out")
         }
@@ -72,6 +108,11 @@ struct ProfileScreen: View {
 
     private var appearanceSection: some View {
         Section("Appearance") {
+            KraxlerSettingsLabel(
+                title: "Color scheme",
+                systemImage: "circle.lefthalf.filled"
+            )
+
             Picker("Appearance", selection: $appearance) {
                 ForEach(AppAppearance.allCases) { appearance in
                     Text(appearance.displayName).tag(appearance)
@@ -84,7 +125,14 @@ struct ProfileScreen: View {
 
     private var aboutSection: some View {
         Section("About") {
-            LabeledContent("Version", value: versionText)
+            LabeledContent {
+                Text(versionText)
+            } label: {
+                KraxlerSettingsLabel(
+                    title: "Version",
+                    systemImage: "info.circle.fill"
+                )
+            }
         }
     }
 

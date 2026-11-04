@@ -15,9 +15,11 @@ struct DownloadedAreasScreen: View {
                 List(offlineDownloadsStore.downloadedManifests) { manifest in
                     downloadedAreaRow(manifest)
                 }
-                .listStyle(.insetGrouped)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
+        .background(KraxlerScreenBackground())
         .navigationTitle("Downloads")
         .navigationBarTitleDisplayMode(.inline)
         .task {

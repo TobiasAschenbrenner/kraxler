@@ -5,6 +5,7 @@
 .env
 .env.*
 !.env.example
+ios/Kraxler/Config/MapboxSecrets.xcconfig
 
 # Node.js
 node_modules/

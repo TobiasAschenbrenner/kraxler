@@ -233,18 +233,36 @@ struct AreaDetailSheet: View {
                         .accessibilityIdentifier("offline-routes-indicator")
                 }
 
-                ForEach(routes) { route in
-                    NavigationLink {
-                        RouteDetailScreen(
-                            routeID: route.id,
-                            climbingRepository: climbingRepository,
-                            personalRoutesStore: personalRoutesStore
-                        )
-                    } label: {
-                        RouteSummaryRow(route: route)
+                Section {
+                    ForEach(routes) { route in
+                        NavigationLink {
+                            RouteDetailScreen(
+                                routeID: route.id,
+                                climbingRepository: climbingRepository,
+                                personalRoutesStore: personalRoutesStore
+                            )
+                        } label: {
+                            RouteSummaryRow(route: route)
+                        }
+                        .accessibilityIdentifier("route-link-\(route.id)")
                     }
-                    .accessibilityIdentifier("route-link-\(route.id)")
+                } header: {
+                    HStack {
+                        Label(
+                            "\(routes.count) \(routes.count == 1 ? "route" : "routes")",
+                            systemImage: "figure.climbing"
+                        )
+
+                        Spacer()
+
+                        if !filters.isEmpty {
+                            Label("Filtered", systemImage: "line.3.horizontal.decrease.circle.fill")
+                                .foregroundStyle(KraxlerDesign.accent)
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
                 }
+                .headerProminence(.increased)
             }
             .listStyle(.plain)
 

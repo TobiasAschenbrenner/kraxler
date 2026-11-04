@@ -181,8 +181,15 @@ private struct SearchRouteRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "figure.climbing")
-                .foregroundStyle(.orange)
+            Text(route.grade.value)
+                .font(.subheadline.bold().monospacedDigit())
+                .foregroundStyle(.white)
+                .frame(minWidth: 38, minHeight: 38)
+                .padding(.horizontal, 3)
+                .background(
+                    KraxlerDesign.accent.gradient,
+                    in: RoundedRectangle(cornerRadius: 11)
+                )
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(route.name)
@@ -194,9 +201,9 @@ private struct SearchRouteRow: View {
 
             Spacer()
 
-            Text(route.grade.value)
-                .font(.headline.monospacedDigit())
-                .foregroundStyle(.tint)
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
     }

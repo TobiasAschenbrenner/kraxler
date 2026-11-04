@@ -180,10 +180,12 @@ struct MapScreen: View {
     }
 
     private var titleCard: some View {
-        HStack {
+        HStack(spacing: 12) {
+            KraxlerBrandMark(size: 42)
+
             VStack(alignment: .leading, spacing: 2) {
                 Text("Kraxler")
-                    .font(.title2.bold())
+                    .font(.headline)
 
                 Text(areaCountText)
                     .font(.caption)
@@ -195,18 +197,22 @@ struct MapScreen: View {
             Button {
                 sheetDestination = .search
             } label: {
-                Image(systemName: "magnifyingglass")
-                    .font(.headline)
-                    .frame(width: 38, height: 38)
-                    .background(.thinMaterial, in: Circle())
+                Label("Search", systemImage: "magnifyingglass")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 13)
+                    .frame(height: 40)
+                    .background(
+                        KraxlerDesign.accent.opacity(0.14),
+                        in: Capsule()
+                    )
             }
             .buttonStyle(.plain)
+            .foregroundStyle(KraxlerDesign.accent)
             .accessibilityLabel("Search climbing areas and routes")
             .accessibilityIdentifier("map-search-button")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .padding(10)
+        .kraxlerGlassSurface(cornerRadius: 22)
         .padding(.horizontal)
         .padding(.top, 8)
     }
@@ -219,19 +225,19 @@ struct MapScreen: View {
 
         case .loaded:
             if model.contentSource == .offline {
-                statusCard {
+                statusPill {
                     Label("Showing downloaded areas", systemImage: "arrow.down.circle.fill")
-                        .font(.subheadline.weight(.semibold))
                 }
             } else if model.visibleAreas.isEmpty {
-                statusCard {
+                statusPill {
                     Label("No climbing areas in this view", systemImage: "map")
                 }
             }
 
         case .loading:
-            statusCard {
-                ProgressView("Loading climbing areas…")
+            statusPill {
+                ProgressView()
+                Text("Loading areas")
             }
 
         case .failed(let message):
@@ -263,6 +269,19 @@ struct MapScreen: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 32)
             .padding(.top, 92)
+    }
+
+    private func statusPill<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 8) {
+            content()
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 13)
+        .frame(minHeight: 38)
+        .kraxlerGlassSurface(cornerRadius: 19)
+        .padding(.top, 82)
     }
 
     private var areaCountText: String {
@@ -315,7 +334,8 @@ struct MapScreen: View {
 private extension View {
     func locationControlStyle() -> some View {
         frame(width: 50, height: 50)
-            .background(.regularMaterial, in: Circle())
+            .foregroundStyle(KraxlerDesign.accent)
+            .kraxlerGlassSurface(cornerRadius: 25, interactive: true)
             .padding()
     }
 }
@@ -326,9 +346,9 @@ private extension ClimbingArea.AreaType {
         case .region:
             "mountain.2.fill"
         case .climbingArea:
-            "mappin.circle.fill"
-        case .sector:
             "figure.climbing"
+        case .sector:
+            "square.grid.2x2.fill"
         }
     }
 

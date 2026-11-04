@@ -572,17 +572,24 @@ struct KraxlerTests {
             )
         }
         let repository = ClimbingRepository(apiClient: client, offlineStore: store)
-        let downloadsStore = OfflineDownloadsStore(climbingRepository: repository)
+        let mapStore = OfflineMapStoreSpy()
+        let downloadsStore = OfflineDownloadsStore(
+            climbingRepository: repository,
+            offlineMapStore: mapStore
+        )
 
         await downloadsStore.download(Self.offlineArea)
 
         #expect(downloadsStore.operation(for: Self.offlineArea.id) == .idle)
         #expect(downloadsStore.manifest(for: Self.offlineArea.id)?.routeCount == 1)
+        #expect(downloadsStore.isAvailableOffline(areaID: Self.offlineArea.id))
+        #expect(mapStore.downloadedAreaIDsValue == [Self.offlineArea.id])
 
-        downloadsStore.remove(areaID: Self.offlineArea.id)
+        await downloadsStore.remove(areaID: Self.offlineArea.id)
 
         #expect(downloadsStore.operation(for: Self.offlineArea.id) == .idle)
         #expect(downloadsStore.manifest(for: Self.offlineArea.id) == nil)
+        #expect(mapStore.downloadedAreaIDsValue.isEmpty)
     }
 
     @Test
@@ -592,7 +599,11 @@ struct KraxlerTests {
             apiClient: makeFailingClient(),
             offlineStore: store
         )
-        let downloadsStore = OfflineDownloadsStore(climbingRepository: repository)
+        let mapStore = OfflineMapStoreSpy()
+        let downloadsStore = OfflineDownloadsStore(
+            climbingRepository: repository,
+            offlineMapStore: mapStore
+        )
 
         await downloadsStore.download(Self.offlineArea)
 
@@ -601,6 +612,80 @@ struct KraxlerTests {
             return
         }
         #expect(downloadsStore.manifest(for: Self.offlineArea.id) == nil)
+        #expect(mapStore.downloadedAreaIDsValue.isEmpty)
+        #expect(mapStore.removedAreaIDs == [Self.offlineArea.id])
+    }
+
+    @Test
+    func reportsMapDownloadFailuresWithoutSavingClimbingData() async throws {
+        let store = try makeOfflineStore()
+        let repository = ClimbingRepository(
+            apiClient: makeFailingClient(),
+            offlineStore: store
+        )
+        let mapStore = OfflineMapStoreSpy()
+        mapStore.downloadError = OfflineMapStoreSpyError.downloadFailed
+        let downloadsStore = OfflineDownloadsStore(
+            climbingRepository: repository,
+            offlineMapStore: mapStore
+        )
+
+        await downloadsStore.download(Self.offlineArea)
+
+        guard case .failed = downloadsStore.operation(for: Self.offlineArea.id) else {
+            Issue.record("A failed map download should publish a failure state.")
+            return
+        }
+        #expect(downloadsStore.manifest(for: Self.offlineArea.id) == nil)
+        #expect(!downloadsStore.isAvailableOffline(areaID: Self.offlineArea.id))
+    }
+
+    @Test
+    func identifiesLegacyDataOnlyDownloadsAsIncomplete() async throws {
+        let store = try makeOfflineStore()
+        try store.save(area: Self.offlineArea, routes: [Self.offlineRoute])
+        let repository = ClimbingRepository(
+            apiClient: makeFailingClient(),
+            offlineStore: store
+        )
+        let downloadsStore = OfflineDownloadsStore(
+            climbingRepository: repository,
+            offlineMapStore: OfflineMapStoreSpy()
+        )
+
+        await downloadsStore.load()
+
+        #expect(downloadsStore.manifest(for: Self.offlineArea.id) != nil)
+        #expect(downloadsStore.hasIncompleteDownload(areaID: Self.offlineArea.id))
+        #expect(!downloadsStore.isAvailableOffline(areaID: Self.offlineArea.id))
+    }
+
+    @Test
+    func preservesAnExistingDownloadWhenAnUpdateFails() async throws {
+        let store = try makeOfflineStore()
+        try store.save(area: Self.offlineArea, routes: [Self.offlineRoute])
+        let repository = ClimbingRepository(
+            apiClient: makeFailingClient(),
+            offlineStore: store
+        )
+        let mapStore = OfflineMapStoreSpy(
+            downloadedAreaIDs: [Self.offlineArea.id]
+        )
+        let downloadsStore = OfflineDownloadsStore(
+            climbingRepository: repository,
+            offlineMapStore: mapStore
+        )
+        await downloadsStore.load()
+
+        await downloadsStore.download(Self.offlineArea)
+
+        guard case .failed = downloadsStore.operation(for: Self.offlineArea.id) else {
+            Issue.record("A failed update should publish a failure state.")
+            return
+        }
+        #expect(downloadsStore.manifest(for: Self.offlineArea.id) != nil)
+        #expect(downloadsStore.isAvailableOffline(areaID: Self.offlineArea.id))
+        #expect(mapStore.removedAreaIDs.isEmpty)
     }
 
     private func makeOfflineStore() throws -> OfflineClimbingStore {
@@ -706,6 +791,42 @@ struct KraxlerTests {
         pitches: 1,
         description: "A historic Fontainebleau problem."
     )
+}
+
+private enum OfflineMapStoreSpyError: Error {
+    case downloadFailed
+}
+
+@MainActor
+private final class OfflineMapStoreSpy: OfflineMapStore {
+    private(set) var downloadedAreaIDsValue: Set<String>
+    private(set) var removedAreaIDs: [String] = []
+    var downloadError: Error?
+
+    init(downloadedAreaIDs: Set<String> = []) {
+        downloadedAreaIDsValue = downloadedAreaIDs
+    }
+
+    func downloadedAreaIDs() async throws -> Set<String> {
+        downloadedAreaIDsValue
+    }
+
+    func downloadMap(
+        for area: ClimbingArea,
+        progress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws {
+        progress(0.5)
+        if let downloadError {
+            throw downloadError
+        }
+        downloadedAreaIDsValue.insert(area.id)
+        progress(1)
+    }
+
+    func removeMap(for areaID: String) async throws {
+        downloadedAreaIDsValue.remove(areaID)
+        removedAreaIDs.append(areaID)
+    }
 }
 
 private final class URLProtocolStub: URLProtocol, @unchecked Sendable {

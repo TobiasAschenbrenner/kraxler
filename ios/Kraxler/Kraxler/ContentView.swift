@@ -29,7 +29,8 @@ struct ContentView: View {
         )
         _offlineDownloadsStore = State(
             initialValue: OfflineDownloadsStore(
-                climbingRepository: climbingRepository
+                climbingRepository: climbingRepository,
+                offlineMapStore: MapboxOfflineMapStore()
             )
         )
         _personalRoutesStore = State(

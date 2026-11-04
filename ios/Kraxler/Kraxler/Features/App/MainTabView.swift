@@ -33,7 +33,7 @@ struct MainTabView: View {
         }
         .tint(.orange)
         .task {
-            offlineDownloadsStore.load()
+            await offlineDownloadsStore.load()
         }
     }
 }

@@ -64,16 +64,24 @@ struct AreaDetailSheet: View {
             let operation = offlineDownloadsStore.operation(for: area.id)
 
             if operation.isInProgress {
-                ProgressView()
+                ProgressView(
+                    value: offlineDownloadsStore.downloadProgress(for: area.id) ?? 0,
+                    total: 1
+                )
                     .accessibilityLabel(
                         operation == .removing
                             ? "Removing downloaded area"
                             : "Downloading area"
                     )
                     .accessibilityIdentifier("offline-download-progress")
-            } else if offlineDownloadsStore.manifest(for: area.id) != nil {
+            } else if offlineDownloadsStore.hasAnyDownload(areaID: area.id) {
                 Menu {
-                    Button("Update download", systemImage: "arrow.clockwise") {
+                    Button(
+                        offlineDownloadsStore.hasIncompleteDownload(areaID: area.id)
+                            ? "Complete download"
+                            : "Update download",
+                        systemImage: "arrow.clockwise"
+                    ) {
                         Task {
                             await offlineDownloadsStore.download(area)
                         }
@@ -84,10 +92,17 @@ struct AreaDetailSheet: View {
                         systemImage: "trash",
                         role: .destructive
                     ) {
-                        offlineDownloadsStore.remove(areaID: area.id)
+                        Task {
+                            await offlineDownloadsStore.remove(areaID: area.id)
+                        }
                     }
                 } label: {
-                    Label("Offline options", systemImage: "arrow.down.circle.fill")
+                    Label(
+                        "Offline options",
+                        systemImage: offlineDownloadsStore.isAvailableOffline(areaID: area.id)
+                            ? "arrow.down.circle.fill"
+                            : "exclamationmark.arrow.circlepath"
+                    )
                 }
                 .accessibilityIdentifier("offline-download-menu")
             } else {
@@ -123,8 +138,32 @@ struct AreaDetailSheet: View {
                     .background(.red.opacity(0.08))
                     .accessibilityIdentifier("offline-download-error")
 
-            case .idle, .downloading, .removing:
-                if let manifest = offlineDownloadsStore.manifest(for: area.id) {
+            case .downloading:
+                let progress = offlineDownloadsStore.downloadProgress(for: area.id) ?? 0
+                HStack(spacing: 10) {
+                    ProgressView(value: progress, total: 1)
+                        .frame(width: 72)
+                    Text("Downloading for offline use · \(progress.formatted(.percent.precision(.fractionLength(0))))")
+                }
+                .font(.caption)
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.orange.opacity(0.08))
+                .accessibilityIdentifier("offline-download-status")
+
+            case .removing:
+                Label("Removing offline download…", systemImage: "trash")
+                    .font(.caption)
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.orange.opacity(0.08))
+                    .accessibilityIdentifier("offline-download-status")
+
+            case .idle:
+                if offlineDownloadsStore.isAvailableOffline(areaID: area.id),
+                   let manifest = offlineDownloadsStore.manifest(for: area.id) {
                     Label {
                         Text(
                             "Available offline · \(manifest.routeCount) "
@@ -141,6 +180,18 @@ struct AreaDetailSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.green.opacity(0.08))
                     .accessibilityIdentifier("offline-download-status")
+                } else if offlineDownloadsStore.hasIncompleteDownload(areaID: area.id) {
+                    Label(
+                        "Offline download incomplete · Update to add the map and climbing data.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.orange.opacity(0.08))
+                    .accessibilityIdentifier("offline-download-incomplete")
                 }
             }
         }

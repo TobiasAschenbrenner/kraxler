@@ -96,7 +96,8 @@ struct RouteDetailScreen: View {
                         systemImage: personalRouteState.isSaved
                             ? "bookmark.fill"
                             : "bookmark",
-                        isActive: personalRouteState.isSaved
+                        isActive: personalRouteState.isSaved,
+                        color: KraxlerDesign.accent
                     ) {
                         await updatePersonalRoute(
                             route: route,
@@ -111,7 +112,8 @@ struct RouteDetailScreen: View {
                         systemImage: personalRouteState.isTicked
                             ? "checkmark.circle.fill"
                             : "checkmark.circle",
-                        isActive: personalRouteState.isTicked
+                        isActive: personalRouteState.isTicked,
+                        color: KraxlerDesign.success
                     ) {
                         await updatePersonalRoute(
                             route: route,
@@ -141,6 +143,7 @@ struct RouteDetailScreen: View {
         title: String,
         systemImage: String,
         isActive: Bool,
+        color: Color,
         action: @escaping () async -> Void
     ) -> some View {
         Button {
@@ -149,10 +152,22 @@ struct RouteDetailScreen: View {
             }
         } label: {
             Label(title, systemImage: systemImage)
+                .font(.headline)
+                .foregroundStyle(isActive ? .white : color)
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    isActive ? color.gradient : Color(.secondarySystemGroupedBackground).gradient,
+                    in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
+                )
+                .overlay {
+                    if !isActive {
+                        RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
+                            .stroke(color.opacity(0.28))
+                    }
+                }
         }
-        .buttonStyle(.bordered)
-        .tint(isActive ? .orange : .accentColor)
+        .buttonStyle(.plain)
         .disabled(isUpdatingPersonalRoute)
     }
 
@@ -255,12 +270,6 @@ private struct RouteDetailContent<Actions: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
-                if source == .offline {
-                    Label("Available offline", systemImage: "arrow.down.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("offline-route-indicator")
-                }
                 actions
                 facts
                 styles
@@ -269,6 +278,8 @@ private struct RouteDetailContent<Actions: View>: View {
                     section("Description") {
                         Text(description)
                             .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .kraxlerCard()
                             .accessibilityIdentifier("route-detail-description")
                     }
                 }
@@ -277,50 +288,84 @@ private struct RouteDetailContent<Actions: View>: View {
             }
             .padding()
         }
+        .background(KraxlerScreenBackground())
         .accessibilityIdentifier("route-detail-screen")
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Text(route.grade.value)
-                .font(.title.bold().monospacedDigit())
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(.orange, in: RoundedRectangle(cornerRadius: 12))
-                .accessibilityIdentifier("route-detail-grade")
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text(route.grade.value)
+                    .font(.title2.bold().monospacedDigit())
+                    .foregroundStyle(KraxlerDesign.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityIdentifier("route-detail-grade")
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(route.name)
-                    .font(.title2.bold())
-                    .accessibilityIdentifier("route-detail-name")
+                Spacer()
 
-                Text(route.discipline.displayName)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("route-detail-discipline")
+                if source == .offline {
+                    Label("Offline", systemImage: "arrow.down.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(.white.opacity(0.18), in: Capsule())
+                        .accessibilityIdentifier("offline-route-indicator")
+                }
             }
 
-            Spacer()
+            VStack(alignment: .leading, spacing: 7) {
+                Text(route.name)
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(.white)
+                    .accessibilityIdentifier("route-detail-name")
+
+                Label(route.discipline.displayName, systemImage: "figure.climbing")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.84))
+                    .accessibilityIdentifier("route-detail-discipline")
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [KraxlerDesign.accent, Color.orange.opacity(0.68)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: KraxlerDesign.cardRadius)
+        )
+        .shadow(color: KraxlerDesign.accent.opacity(0.18), radius: 16, y: 8)
     }
 
     private var facts: some View {
         section("Climb") {
-            VStack(spacing: 0) {
-                factRow("Grade system", value: route.grade.system.displayName)
+            HStack(spacing: 10) {
+                metricCard(
+                    title: "System",
+                    value: route.grade.system.displayName,
+                    systemImage: "chart.bar.fill"
+                )
 
                 if let lengthMeters = route.lengthMeters {
-                    Divider()
-                    factRow("Length", value: "\(lengthMeters.formatted()) m")
+                    metricCard(
+                        title: "Length",
+                        value: "\(lengthMeters.formatted()) m",
+                        systemImage: "ruler.fill"
+                    )
                 }
 
                 if let pitches = route.pitches {
-                    Divider()
-                    factRow("Pitches", value: pitches.formatted())
+                    metricCard(
+                        title: "Pitches",
+                        value: pitches.formatted(),
+                        systemImage: "arrow.up.right"
+                    )
                 }
             }
-            .padding(.horizontal)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
     }
 
@@ -328,8 +373,21 @@ private struct RouteDetailContent<Actions: View>: View {
     private var styles: some View {
         if !route.styles.isEmpty {
             section("Styles") {
-                Text(route.styles.map(\.displayName).joined(separator: " · "))
-                    .foregroundStyle(.secondary)
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(route.styles, id: \.self) { style in
+                            Text(style.displayName)
+                                .font(.subheadline.weight(.medium))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(
+                                    KraxlerDesign.accent.opacity(0.12),
+                                    in: Capsule()
+                                )
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
                     .accessibilityIdentifier("route-detail-styles")
             }
         }
@@ -356,7 +414,7 @@ private struct RouteDetailContent<Actions: View>: View {
                 .mapStyle(.standard)
                 .allowsHitTesting(false)
                 .frame(height: 180)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .clipShape(RoundedRectangle(cornerRadius: KraxlerDesign.cardRadius))
 
                 Text(coordinateText)
                     .font(.caption.monospacedDigit())
@@ -377,9 +435,26 @@ private struct RouteDetailContent<Actions: View>: View {
         return "\(latitude), \(longitude)"
     }
 
-    private func factRow(_ label: String, value: String) -> some View {
-        LabeledContent(label, value: value)
-            .padding(.vertical, 12)
+    private func metricCard(
+        title: String,
+        value: String,
+        systemImage: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Image(systemName: systemImage)
+                .foregroundStyle(KraxlerDesign.accent)
+
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.72)
+
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .kraxlerCard()
     }
 
     private func section<Content: View>(

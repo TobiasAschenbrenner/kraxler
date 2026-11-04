@@ -15,6 +15,14 @@ import Testing
 @MainActor
 struct KraxlerTests {
     @Test
+    func mapsAppearancePreferencesToColorSchemes() {
+        #expect(AppAppearance.system.colorScheme == nil)
+        #expect(AppAppearance.light.colorScheme == .light)
+        #expect(AppAppearance.dark.colorScheme == .dark)
+        #expect(AppAppearance.allCases.map(\.displayName) == ["System", "Light", "Dark"])
+    }
+
+    @Test
     func restoresAnExistingAuthenticationSession() {
         let account = AuthenticatedAccount(
             id: "account-1",

@@ -13,6 +13,7 @@ import SwiftUI
 @main
 struct KraxlerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @AppStorage(AppAppearance.storageKey) private var appearance = AppAppearance.system
     @State private var authSession: AuthSession
     private let modelContainer: ModelContainer
 
@@ -60,6 +61,7 @@ struct KraxlerApp: App {
             )
             .environment(authSession)
             .modelContainer(modelContainer)
+            .preferredColorScheme(appearance.colorScheme)
             .task {
                 authSession.start()
             }

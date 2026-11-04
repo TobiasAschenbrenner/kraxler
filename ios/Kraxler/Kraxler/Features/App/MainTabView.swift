@@ -4,6 +4,7 @@ struct MainTabView: View {
     private enum AppTab: Hashable {
         case map
         case library
+        case profile
     }
 
     let personalRoutesStore: PersonalRoutesStore
@@ -27,6 +28,10 @@ struct MainTabView: View {
                     personalRoutesStore: personalRoutesStore,
                     climbingRepository: climbingRepository
                 )
+            }
+
+            Tab("Profile", systemImage: "person.crop.circle", value: .profile) {
+                ProfileScreen()
             }
         }
         .tint(.orange)

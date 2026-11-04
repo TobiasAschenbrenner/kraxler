@@ -15,9 +15,17 @@ struct AuthenticationScreen: View {
     @State private var password = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case email
+        case password
+    }
 
     var body: some View {
-        Group {
+        ZStack {
+            KraxlerScreenBackground()
+
             if authSession.configurationState == .notConfigured {
                 ContentUnavailableView {
                     Label("Account setup pending", systemImage: "person.crop.circle.badge.exclamationmark")
@@ -25,87 +33,132 @@ struct AuthenticationScreen: View {
                     Text("Firebase still needs to be connected before accounts can be used.")
                 }
             } else {
-                VStack(spacing: 0) {
-                    header
-                    form
+                ScrollView {
+                    VStack(spacing: 28) {
+                        header
+                        accountCard
+                    }
+                    .padding(.horizontal, KraxlerDesign.pagePadding)
+                    .padding(.top, 40)
+                    .padding(.bottom, 28)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: mode)
         .accessibilityIdentifier("authentication-screen")
     }
 
     private var header: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "mountain.2.fill")
-                .font(.system(size: 52))
-                .foregroundStyle(.orange)
-                .accessibilityHidden(true)
+        VStack(spacing: 14) {
+            KraxlerBrandMark(size: 76)
 
             Text("Kraxler")
-                .font(.largeTitle.bold())
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+
+            Text("Find climbs. Go offline.")
+                .font(.headline)
+                .foregroundStyle(.secondary)
         }
-        .padding(.top, 48)
-        .padding(.bottom, 24)
+        .frame(maxWidth: .infinity)
     }
 
-    private var form: some View {
-        Form {
-            Section {
-                Picker("Account action", selection: $mode) {
-                    ForEach(Mode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
+    private var accountCard: some View {
+        VStack(spacing: 20) {
+            Picker("Account action", selection: $mode) {
+                ForEach(Mode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
                 }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("authentication-mode-picker")
             }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("authentication-mode-picker")
 
-            Section {
-                TextField("Email", text: $email)
+            VStack(spacing: 12) {
+                authenticationField(systemImage: "envelope.fill") {
+                    TextField("Email", text: $email)
+                        .focused($focusedField, equals: .email)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .password }
+                }
                     .textContentType(.emailAddress)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("authentication-email")
 
-                SecureField("Password", text: $password)
+                authenticationField(systemImage: "lock.fill") {
+                    SecureField("Password", text: $password)
+                        .focused($focusedField, equals: .password)
+                        .submitLabel(.go)
+                        .onSubmit {
+                            guard canSubmit, !isSubmitting else { return }
+                            Task { await submit() }
+                        }
+                }
                     .textContentType(mode == .signIn ? .password : .newPassword)
                     .accessibilityIdentifier("authentication-password")
-            } footer: {
-                if mode == .createAccount {
-                    Text("Use at least six characters for your password.")
-                }
+            }
+
+            if mode == .createAccount {
+                Label("Use at least six characters", systemImage: "checkmark.shield")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .accessibilityIdentifier("authentication-error")
-                }
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("authentication-error")
             }
 
-            Section {
-                Button {
-                    Task {
-                        await submit()
-                    }
-                } label: {
-                    HStack {
-                        Spacer()
-                        if isSubmitting {
-                            ProgressView()
-                        } else {
-                            Text(mode.rawValue)
-                        }
-                        Spacer()
+            Button {
+                Task {
+                    await submit()
+                }
+            } label: {
+                Group {
+                    if isSubmitting {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Text(mode.rawValue)
                     }
                 }
-                .disabled(!canSubmit || isSubmitting)
-                .accessibilityIdentifier("authentication-submit")
+                .frame(height: 22)
             }
+            .buttonStyle(KraxlerPrimaryButtonStyle())
+            .disabled(!canSubmit || isSubmitting)
+            .opacity(canSubmit ? 1 : 0.46)
+            .accessibilityIdentifier("authentication-submit")
         }
-        .scrollDismissesKeyboard(.interactively)
+        .padding(20)
+        .background(
+            Color(.secondarySystemGroupedBackground).opacity(0.9),
+            in: RoundedRectangle(cornerRadius: 24)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 24, y: 12)
+    }
+
+    private func authenticationField<FieldContent: View>(
+        systemImage: String,
+        @ViewBuilder content: () -> FieldContent
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(KraxlerDesign.accent)
+                .frame(width: 22)
+
+            content()
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 52)
+        .background(
+            Color(.tertiarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
+        )
     }
 
     private var canSubmit: Bool {

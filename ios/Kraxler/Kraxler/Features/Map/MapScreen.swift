@@ -1,4 +1,5 @@
-import MapKit
+import CoreLocation
+import MapboxMaps
 import SwiftUI
 
 struct MapScreen: View {
@@ -16,9 +17,15 @@ struct MapScreen: View {
         }
     }
 
-    private static let initialRegion = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 49.1, longitude: 6.9),
-        span: MKCoordinateSpan(latitudeDelta: 2.1, longitudeDelta: 10.5)
+    private static let initialCenter = CLLocationCoordinate2D(
+        latitude: 49.1,
+        longitude: 6.9
+    )
+    private static let initialBounds = MapBounds(
+        west: 1.65,
+        south: 48.05,
+        east: 12.15,
+        north: 50.15
     )
 
     private let personalRoutesStore: PersonalRoutesStore?
@@ -26,12 +33,10 @@ struct MapScreen: View {
     private let offlineDownloadsStore: OfflineDownloadsStore?
     private let loadsRemoteAreas: Bool
 
-    @Namespace private var mapScope
     @State private var model: MapScreenModel
     @State private var locationAuthorization = LocationAuthorizationController()
-    @State private var cameraPosition: MapCameraPosition
+    @State private var viewport: Viewport
     @State private var requestedBounds: MapBounds
-    @State private var selectedAreaID: String?
     @State private var sheetDestination: SheetDestination?
     @State private var pendingAreaFromSearch: ClimbingArea?
 
@@ -56,36 +61,51 @@ struct MapScreen: View {
                 initialErrorMessage: initialErrorMessage
             )
         )
-        _cameraPosition = State(initialValue: .region(Self.initialRegion))
-        _requestedBounds = State(initialValue: MapBounds(region: Self.initialRegion))
+        _viewport = State(
+            initialValue: .camera(center: Self.initialCenter, zoom: 4.8)
+        )
+        _requestedBounds = State(initialValue: Self.initialBounds)
     }
 
     var body: some View {
         ZStack(alignment: .top) {
-            Map(position: $cameraPosition, selection: $selectedAreaID, scope: mapScope) {
-                ForEach(model.visibleAreas) { area in
-                    Marker(
-                        area.name,
-                        systemImage: area.type.symbolName,
-                        coordinate: area.location.coordinate
-                    )
-                    .tint(area.type.markerColor)
-                    .tag(area.id)
-                }
+            GeometryReader { geometry in
+                MapReader { proxy in
+                    MapboxMaps.Map(viewport: $viewport) {
+                        ForEvery(model.visibleAreas) { area in
+                            MapViewAnnotation(coordinate: area.location.coordinate) {
+                                Button {
+                                    sheetDestination = .area(area)
+                                } label: {
+                                    MapAreaMarker(area: area)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(area.name)
+                                .accessibilityIdentifier("map-area-\(area.id)")
+                            }
+                            .allowOverlap(false)
+                            .priority(area.type.annotationPriority)
+                        }
 
-                if locationAuthorization.isAuthorized {
-                    UserAnnotation()
+                        if locationAuthorization.isAuthorized {
+                            Puck2D(bearing: .heading)
+                        }
+                    }
+                    .mapStyle(.standard)
+                    .ornamentOptions(
+                        OrnamentOptions(
+                            scaleBar: ScaleBarViewOptions(visibility: .visible),
+                            compass: CompassViewOptions(visibility: .visible)
+                        )
+                    )
+                    .onMapIdle { _ in
+                        updateVisibleBounds(
+                            using: proxy,
+                            mapSize: geometry.size
+                        )
+                    }
+                    .ignoresSafeArea(edges: .bottom)
                 }
-            }
-            .mapStyle(.standard(elevation: .realistic))
-            .mapControls {
-                MapCompass()
-                MapScaleView()
-            }
-            .mapScope(mapScope)
-            .ignoresSafeArea(edges: .bottom)
-            .onMapCameraChange(frequency: .onEnd) { context in
-                requestedBounds = MapBounds(region: context.region)
             }
 
             titleCard
@@ -101,24 +121,14 @@ struct MapScreen: View {
             }
             await model.loadAreas(in: requestedBounds)
         }
-        .onChange(of: selectedAreaID) { _, areaID in
-            guard let area = model.visibleAreas.first(where: { $0.id == areaID }) else {
-                return
-            }
-            sheetDestination = .area(area)
-        }
         .onChange(of: locationAuthorization.isAuthorized) { _, isAuthorized in
             guard isAuthorized else {
                 return
             }
 
-            cameraPosition = .userLocation(
-                followsHeading: false,
-                fallback: .region(Self.initialRegion)
-            )
+            viewport = .followPuck(zoom: 14, bearing: .heading)
         }
         .sheet(item: $sheetDestination, onDismiss: {
-            selectedAreaID = nil
             presentPendingAreaFromSearch()
         }) { destination in
             switch destination {
@@ -144,8 +154,11 @@ struct MapScreen: View {
     @ViewBuilder
     private var locationControl: some View {
         if locationAuthorization.isAuthorized {
-            MapUserLocationButton(scope: mapScope)
-                .labelStyle(.iconOnly)
+            Button {
+                viewport = .followPuck(zoom: 14, bearing: .heading)
+            } label: {
+                Image(systemName: "location.fill")
+            }
                 .accessibilityLabel("Show my location")
                 .accessibilityIdentifier("map-user-location-button")
                 .locationControlStyle()
@@ -262,11 +275,27 @@ struct MapScreen: View {
     }
 
     private func focusMap(on area: ClimbingArea) {
-        cameraPosition = .region(
-            MKCoordinateRegion(
-                center: area.location.coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
-            )
+        viewport = .camera(
+            center: area.location.coordinate,
+            zoom: 13.5
+        )
+    }
+
+    private func updateVisibleBounds(using proxy: MapProxy, mapSize: CGSize) {
+        guard
+            mapSize.width > 0,
+            mapSize.height > 0,
+            let map = proxy.map
+        else {
+            return
+        }
+
+        let bounds = map.coordinateBounds(
+            for: CGRect(origin: .zero, size: mapSize)
+        )
+        requestedBounds = MapBounds(
+            southwest: bounds.southwest,
+            northeast: bounds.northeast
         )
     }
 
@@ -311,6 +340,44 @@ private extension ClimbingArea.AreaType {
             .orange
         case .sector:
             .green
+        }
+    }
+
+    var annotationPriority: Int {
+        switch self {
+        case .region:
+            0
+        case .climbingArea:
+            2
+        case .sector:
+            1
+        }
+    }
+}
+
+private struct MapAreaMarker: View {
+    let area: ClimbingArea
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Image(systemName: area.type.symbolName)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(area.type.markerColor, in: Circle())
+                .overlay {
+                    Circle()
+                        .stroke(.white, lineWidth: 2)
+                }
+                .shadow(radius: 2, y: 1)
+
+            Text(area.name)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(.regularMaterial, in: Capsule())
         }
     }
 }

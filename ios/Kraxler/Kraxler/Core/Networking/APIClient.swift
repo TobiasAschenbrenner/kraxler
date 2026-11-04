@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 
 nonisolated struct MapBounds: Equatable, Hashable, Sendable {
@@ -5,6 +6,25 @@ nonisolated struct MapBounds: Equatable, Hashable, Sendable {
     let south: Double
     let east: Double
     let north: Double
+
+    init(west: Double, south: Double, east: Double, north: Double) {
+        self.west = west
+        self.south = south
+        self.east = east
+        self.north = north
+    }
+
+    init(
+        southwest: CLLocationCoordinate2D,
+        northeast: CLLocationCoordinate2D
+    ) {
+        self.init(
+            west: southwest.longitude,
+            south: southwest.latitude,
+            east: northeast.longitude,
+            north: northeast.latitude
+        )
+    }
 
     var queryValue: String {
         [west, south, east, north]

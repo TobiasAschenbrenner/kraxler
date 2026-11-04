@@ -1,4 +1,4 @@
-import MapKit
+import MapboxMaps
 import SwiftUI
 
 struct RouteDetailScreen: View {
@@ -356,21 +356,23 @@ private struct RouteDetailContent<Actions: View>: View {
     private var location: some View {
         section("Location") {
             VStack(alignment: .leading, spacing: 12) {
-                Map(
-                    initialPosition: .region(
-                        MKCoordinateRegion(
-                            center: route.location.coordinate,
-                            span: MKCoordinateSpan(
-                                latitudeDelta: 0.005,
-                                longitudeDelta: 0.005
-                            )
-                        )
-                    ),
-                    interactionModes: []
+                MapboxMaps.Map(
+                    initialViewport: .camera(
+                        center: route.location.coordinate,
+                        zoom: 16
+                    )
                 ) {
-                    Marker(route.name, coordinate: route.location.coordinate)
-                        .tint(.orange)
+                    MapViewAnnotation(coordinate: route.location.coordinate) {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(.orange)
+                            .background(.white, in: Circle())
+                            .accessibilityHidden(true)
+                    }
+                    .allowHitTesting(false)
                 }
+                .mapStyle(.standard)
+                .allowsHitTesting(false)
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 

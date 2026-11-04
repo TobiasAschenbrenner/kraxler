@@ -7,7 +7,6 @@
 
 import CoreLocation
 import Foundation
-import MapKit
 import SwiftData
 import Testing
 @testable import Kraxler
@@ -16,13 +15,11 @@ import Testing
 @MainActor
 struct KraxlerTests {
     @Test
-    func derivesBoundsFromVisibleMapRegion() {
-        let region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 48.5, longitude: 3),
-            span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 1)
+    func derivesBoundsFromVisibleMapCoordinates() {
+        let bounds = MapBounds(
+            southwest: CLLocationCoordinate2D(latitude: 48.25, longitude: 2.5),
+            northeast: CLLocationCoordinate2D(latitude: 48.75, longitude: 3.5)
         )
-
-        let bounds = MapBounds(region: region)
 
         #expect(bounds.west == 2.5)
         #expect(bounds.south == 48.25)

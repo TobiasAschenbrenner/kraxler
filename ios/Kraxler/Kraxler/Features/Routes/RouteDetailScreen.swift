@@ -2,12 +2,6 @@ import MapboxMaps
 import SwiftUI
 
 struct RouteDetailScreen: View {
-    private enum SheetDestination: String, Identifiable {
-        case authentication
-
-        var id: String { rawValue }
-    }
-
     private enum RouteState {
         case loading
         case loaded(ClimbingRoute, ClimbingContentSource)
@@ -24,7 +18,6 @@ struct RouteDetailScreen: View {
     @State private var personalRouteState: PersonalRouteState
     @State private var isUpdatingPersonalRoute = false
     @State private var personalRouteErrorMessage: String?
-    @State private var sheetDestination: SheetDestination?
 
     init(
         routeID: String,
@@ -62,12 +55,6 @@ struct RouteDetailScreen: View {
                 accountID: authSession.account?.id
             )) {
                 await loadPersonalRouteState()
-            }
-            .sheet(item: $sheetDestination) { destination in
-                switch destination {
-                case .authentication:
-                    AuthenticationSheet()
-                }
             }
     }
 
@@ -157,11 +144,6 @@ struct RouteDetailScreen: View {
         action: @escaping () async -> Void
     ) -> some View {
         Button {
-            guard authSession.isAuthenticated else {
-                sheetDestination = .authentication
-                return
-            }
-
             Task {
                 await action()
             }
@@ -412,28 +394,6 @@ private struct RouteDetailContent<Actions: View>: View {
     }
 }
 
-private struct AuthenticationSheet: View {
-    @Environment(AuthSession.self) private var authSession
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            AuthenticationScreen()
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close", systemImage: "xmark") {
-                            dismiss()
-                        }
-                    }
-                }
-        }
-        .onChange(of: authSession.account) { _, account in
-            if account != nil {
-                dismiss()
-            }
-        }
-    }
-}
 #if DEBUG
 extension ClimbingRoute {
     static let routeDetailFixture = ClimbingRoute(

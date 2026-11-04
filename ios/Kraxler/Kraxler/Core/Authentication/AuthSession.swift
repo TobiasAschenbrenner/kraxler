@@ -1,5 +1,3 @@
-import FirebaseAuth
-import FirebaseCore
 import Foundation
 import Observation
 
@@ -25,65 +23,66 @@ final class AuthSession {
     private(set) var account: AuthenticatedAccount?
     private(set) var configurationState: ConfigurationState = .loading
 
-    private var authStateHandle: AuthStateDidChangeListenerHandle?
+    private let client: AuthenticationClient
+    private var stopObservingAccount: (() -> Void)?
+
+    init(client: AuthenticationClient) {
+        self.client = client
+    }
+
+    convenience init() {
+        self.init(client: .firebase)
+    }
 
     var isAuthenticated: Bool {
         account != nil
     }
 
     func start() {
-        guard authStateHandle == nil else {
+        guard stopObservingAccount == nil else {
             return
         }
 
-        guard FirebaseApp.app() != nil else {
+        guard client.isConfigured() else {
             configurationState = .notConfigured
             return
         }
 
-        authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            Task { @MainActor in
-                self?.account = user.map {
-                    AuthenticatedAccount(id: $0.uid, email: $0.email)
-                }
-                self?.configurationState = .ready
-            }
+        stopObservingAccount = client.observeAccount { [weak self] account in
+            self?.account = account
+            self?.configurationState = .ready
         }
     }
 
     func signIn(email: String, password: String) async throws {
-        guard FirebaseApp.app() != nil else {
+        guard client.isConfigured() else {
             throw AuthSessionError.notConfigured
         }
 
-        try await Auth.auth().signIn(withEmail: email, password: password)
+        try await client.signIn(email, password)
     }
 
     func createAccount(email: String, password: String) async throws {
-        guard FirebaseApp.app() != nil else {
+        guard client.isConfigured() else {
             throw AuthSessionError.notConfigured
         }
 
-        try await Auth.auth().createUser(withEmail: email, password: password)
+        try await client.createAccount(email, password)
     }
 
     func signOut() throws {
-        guard FirebaseApp.app() != nil else {
+        guard client.isConfigured() else {
             throw AuthSessionError.notConfigured
         }
 
-        try Auth.auth().signOut()
+        try client.signOut()
     }
 
     func idTokenIfAvailable() async throws -> String? {
-        guard FirebaseApp.app() != nil else {
+        guard client.isConfigured() else {
             return nil
         }
 
-        guard let user = Auth.auth().currentUser else {
-            return nil
-        }
-
-        return try await user.getIDToken()
+        return try await client.idToken()
     }
 }

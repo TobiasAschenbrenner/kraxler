@@ -25,10 +25,27 @@ struct AuthenticationScreen: View {
                     Text("Firebase still needs to be connected before accounts can be used.")
                 }
             } else {
-                form
+                VStack(spacing: 0) {
+                    header
+                    form
+                }
             }
         }
-        .navigationTitle("Your library")
+        .accessibilityIdentifier("authentication-screen")
+    }
+
+    private var header: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "mountain.2.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+
+            Text("Kraxler")
+                .font(.largeTitle.bold())
+        }
+        .padding(.top, 48)
+        .padding(.bottom, 24)
     }
 
     private var form: some View {
@@ -88,6 +105,7 @@ struct AuthenticationScreen: View {
                 .accessibilityIdentifier("authentication-submit")
             }
         }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var canSubmit: Bool {

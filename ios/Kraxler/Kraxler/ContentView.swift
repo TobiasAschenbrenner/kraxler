@@ -16,6 +16,7 @@ struct ContentView: View {
     private let showsRouteDetailFixture: Bool
     @State private var personalRoutesStore: PersonalRoutesStore
     @State private var offlineDownloadsStore: OfflineDownloadsStore
+    @Environment(AuthSession.self) private var authSession
 
     init(
         apiClient: APIClient = APIClient(),
@@ -58,12 +59,47 @@ struct ContentView: View {
             }
 #endif
         } else {
+            authenticatedContent
+                .onChange(of: authSession.account) { _, account in
+                    if account == nil {
+                        personalRoutesStore.reset()
+                    }
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var authenticatedContent: some View {
+        switch authSession.configurationState {
+        case .loading:
+            VStack(spacing: 16) {
+                Image(systemName: "mountain.2.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.orange)
+                Text("Kraxler")
+                    .font(.title.bold())
+                ProgressView()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("authentication-loading")
+
+        case .notConfigured:
+            NavigationStack {
+                AuthenticationScreen()
+            }
+
+        case .ready where !authSession.isAuthenticated:
+            NavigationStack {
+                AuthenticationScreen()
+            }
+
+        case .ready:
             MainTabView(
-                apiClient: apiClient,
                 personalRoutesStore: personalRoutesStore,
                 climbingRepository: climbingRepository,
                 offlineDownloadsStore: offlineDownloadsStore
             )
+            .accessibilityIdentifier("authenticated-app")
         }
     }
 }

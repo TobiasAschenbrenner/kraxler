@@ -6,7 +6,6 @@ struct MainTabView: View {
         case library
     }
 
-    let apiClient: APIClient
     let personalRoutesStore: PersonalRoutesStore
     let climbingRepository: ClimbingRepository
     let offlineDownloadsStore: OfflineDownloadsStore
@@ -25,7 +24,6 @@ struct MainTabView: View {
 
             Tab("Library", systemImage: "bookmark", value: .library) {
                 LibraryScreen(
-                    apiClient: apiClient,
                     personalRoutesStore: personalRoutesStore,
                     climbingRepository: climbingRepository
                 )

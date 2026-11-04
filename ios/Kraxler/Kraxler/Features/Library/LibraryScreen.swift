@@ -8,7 +8,6 @@ struct LibraryScreen: View {
         var id: String { rawValue }
     }
 
-    let apiClient: APIClient
     let personalRoutesStore: PersonalRoutesStore
     let climbingRepository: ClimbingRepository
 
@@ -17,12 +16,8 @@ struct LibraryScreen: View {
 
     var body: some View {
         NavigationStack {
-            content
-                .toolbar {
-                    if authSession.isAuthenticated {
-                        accountToolbar
-                    }
-                }
+            libraryContent
+                .navigationTitle("Library")
         }
         .task(id: authSession.account?.id) {
             guard authSession.isAuthenticated else {
@@ -31,25 +26,6 @@ struct LibraryScreen: View {
             }
 
             await personalRoutesStore.load(force: true)
-        }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch authSession.configurationState {
-        case .loading:
-            ProgressView("Loading your account…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-        case .notConfigured:
-            AuthenticationScreen()
-
-        case .ready where !authSession.isAuthenticated:
-            AuthenticationScreen()
-
-        case .ready:
-            libraryContent
-                .navigationTitle("Library")
         }
     }
 
@@ -143,22 +119,4 @@ struct LibraryScreen: View {
         }
     }
 
-    @ToolbarContentBuilder
-    private var accountToolbar: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            Menu {
-                if let email = authSession.account?.email {
-                    Text(email)
-                }
-
-                Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                    try? authSession.signOut()
-                }
-            } label: {
-                Image(systemName: "person.crop.circle")
-            }
-            .accessibilityLabel("Account")
-            .accessibilityIdentifier("library-account-menu")
-        }
-    }
 }

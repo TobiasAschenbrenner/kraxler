@@ -15,6 +15,40 @@ import Testing
 @MainActor
 struct KraxlerTests {
     @Test
+    func restoresAnExistingAuthenticationSession() {
+        let account = AuthenticatedAccount(
+            id: "account-1",
+            email: "climber@example.com"
+        )
+        let authentication = AuthenticationClientSpy(account: account)
+        let session = AuthSession(client: authentication.client)
+
+        session.start()
+
+        #expect(session.configurationState == .ready)
+        #expect(session.account == account)
+        #expect(session.isAuthenticated)
+    }
+
+    @Test
+    func signsOutAndPublishesTheSignedOutState() throws {
+        let authentication = AuthenticationClientSpy(
+            account: AuthenticatedAccount(
+                id: "account-1",
+                email: "climber@example.com"
+            )
+        )
+        let session = AuthSession(client: authentication.client)
+        session.start()
+
+        try session.signOut()
+
+        #expect(authentication.signOutCallCount == 1)
+        #expect(session.account == nil)
+        #expect(!session.isAuthenticated)
+    }
+
+    @Test
     func derivesBoundsFromVisibleMapCoordinates() {
         let bounds = MapBounds(
             southwest: CLLocationCoordinate2D(latitude: 48.25, longitude: 2.5),
@@ -791,6 +825,52 @@ struct KraxlerTests {
         pitches: 1,
         description: "A historic Fontainebleau problem."
     )
+}
+
+@MainActor
+private final class AuthenticationClientSpy {
+    private var account: AuthenticatedAccount?
+    private var observer: AuthenticationClient.AccountObserver?
+    private(set) var signOutCallCount = 0
+
+    init(account: AuthenticatedAccount?) {
+        self.account = account
+    }
+
+    var client: AuthenticationClient {
+        AuthenticationClient(
+            isConfigured: { true },
+            observeAccount: { [self] observer in
+                self.observer = observer
+                observer(account)
+                return { [weak self] in
+                    self?.observer = nil
+                }
+            },
+            signIn: { [self] email, _ in
+                updateAccount(
+                    AuthenticatedAccount(id: "signed-in-account", email: email)
+                )
+            },
+            createAccount: { [self] email, _ in
+                updateAccount(
+                    AuthenticatedAccount(id: "created-account", email: email)
+                )
+            },
+            signOut: { [self] in
+                signOutCallCount += 1
+                updateAccount(nil)
+            },
+            idToken: { [self] in
+                account == nil ? nil : "test-token"
+            }
+        )
+    }
+
+    private func updateAccount(_ account: AuthenticatedAccount?) {
+        self.account = account
+        observer?(account)
+    }
 }
 
 private enum OfflineMapStoreSpyError: Error {

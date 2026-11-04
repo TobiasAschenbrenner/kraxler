@@ -23,6 +23,12 @@ final class OfflineDownloadsStore {
     private let climbingRepository: ClimbingRepository
     private let offlineMapStore: OfflineMapStore
 
+    var downloadedManifests: [OfflineAreaManifest] {
+        manifestsByAreaID.values.sorted {
+            $0.area.name.localizedStandardCompare($1.area.name) == .orderedAscending
+        }
+    }
+
     init(
         climbingRepository: ClimbingRepository,
         offlineMapStore: OfflineMapStore

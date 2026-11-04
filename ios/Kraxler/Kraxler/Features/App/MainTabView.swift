@@ -31,7 +31,9 @@ struct MainTabView: View {
             }
 
             Tab("Profile", systemImage: "person.crop.circle", value: .profile) {
-                ProfileScreen()
+                ProfileScreen(
+                    offlineDownloadsStore: offlineDownloadsStore
+                )
             }
         }
         .tint(.orange)

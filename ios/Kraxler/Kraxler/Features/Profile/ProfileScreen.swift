@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ProfileScreen: View {
+    let offlineDownloadsStore: OfflineDownloadsStore
+
     @Environment(AuthSession.self) private var authSession
     @AppStorage(AppAppearance.storageKey) private var appearance = AppAppearance.system
     @State private var signOutErrorMessage: String?
@@ -9,6 +11,7 @@ struct ProfileScreen: View {
         NavigationStack {
             Form {
                 accountSection
+                downloadsSection
                 appearanceSection
                 aboutSection
             }
@@ -26,6 +29,22 @@ struct ProfileScreen: View {
             }
         }
         .accessibilityIdentifier("profile-screen")
+    }
+
+    private var downloadsSection: some View {
+        Section("Offline") {
+            NavigationLink {
+                DownloadedAreasScreen(
+                    offlineDownloadsStore: offlineDownloadsStore
+                )
+            } label: {
+                LabeledContent(
+                    "Downloaded areas",
+                    value: offlineDownloadsStore.downloadedManifests.count.formatted()
+                )
+            }
+            .accessibilityIdentifier("profile-downloads")
+        }
     }
 
     private var accountSection: some View {

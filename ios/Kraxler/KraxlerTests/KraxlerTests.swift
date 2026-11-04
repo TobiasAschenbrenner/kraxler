@@ -624,6 +624,7 @@ struct KraxlerTests {
 
         #expect(downloadsStore.operation(for: Self.offlineArea.id) == .idle)
         #expect(downloadsStore.manifest(for: Self.offlineArea.id)?.routeCount == 1)
+        #expect(downloadsStore.downloadedManifests.map(\.area.id) == [Self.offlineArea.id])
         #expect(downloadsStore.isAvailableOffline(areaID: Self.offlineArea.id))
         #expect(mapStore.downloadedAreaIDsValue == [Self.offlineArea.id])
 
@@ -631,6 +632,7 @@ struct KraxlerTests {
 
         #expect(downloadsStore.operation(for: Self.offlineArea.id) == .idle)
         #expect(downloadsStore.manifest(for: Self.offlineArea.id) == nil)
+        #expect(downloadsStore.downloadedManifests.isEmpty)
         #expect(mapStore.downloadedAreaIDsValue.isEmpty)
     }
 

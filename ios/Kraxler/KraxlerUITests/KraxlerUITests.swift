@@ -15,6 +15,7 @@ final class KraxlerUITests: XCTestCase {
     @MainActor
     func testMapLoadsAreasFromAPI() throws {
         let app = XCUIApplication()
+        app.launchArguments.append("-ui-test-authenticated")
         app.launch()
 
         XCTAssertTrue(app.staticTexts["Kraxler"].waitForExistence(timeout: 10))
@@ -50,5 +51,66 @@ final class KraxlerUITests: XCTestCase {
         )
         XCTAssertTrue(app.staticTexts["route-detail-description"].exists)
         XCTAssertTrue(app.staticTexts["route-detail-location"].exists)
+    }
+
+    @MainActor
+    func testRequiresAuthenticationBeforeAppAccess() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-test-signed-out")
+        app.launch()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["authentication-screen"]
+                .waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(app.buttons["authentication-submit"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Map"].exists)
+    }
+
+    @MainActor
+    func testRestoresAuthenticationAndShowsMainNavigation() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-test-authenticated")
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Map"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Library"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Profile"].exists)
+    }
+
+    @MainActor
+    func testSignsOutFromProfile() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-test-authenticated")
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Profile"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Profile"].tap()
+
+        XCTAssertTrue(app.buttons["profile-sign-out"].waitForExistence(timeout: 5))
+        app.buttons["profile-sign-out"].tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["authentication-screen"]
+                .waitForExistence(timeout: 5)
+        )
+        XCTAssertFalse(app.tabBars.buttons["Map"].exists)
+    }
+
+    @MainActor
+    func testOpensDownloadedAreaManagement() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-test-authenticated")
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Profile"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Profile"].tap()
+        XCTAssertTrue(app.buttons["profile-downloads"].waitForExistence(timeout: 5))
+        app.buttons["profile-downloads"].tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["downloaded-areas-screen"]
+                .waitForExistence(timeout: 5)
+        )
     }
 }

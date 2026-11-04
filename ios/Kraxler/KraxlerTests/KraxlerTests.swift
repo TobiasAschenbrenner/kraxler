@@ -8,6 +8,7 @@
 import CoreLocation
 import Foundation
 import SwiftData
+import SwiftUI
 import Testing
 @testable import Kraxler
 

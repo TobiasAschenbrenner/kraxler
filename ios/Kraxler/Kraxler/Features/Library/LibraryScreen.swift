@@ -55,7 +55,6 @@ struct LibraryScreen: View {
         .padding(.horizontal, KraxlerDesign.pagePadding)
         .padding(.top, 8)
         .padding(.bottom, 14)
-        .accessibilityIdentifier("library-section-picker")
     }
 
     private func librarySectionButton(
@@ -94,7 +93,8 @@ struct LibraryScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(section.rawValue), \(routeCount(for: section)) routes")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityIdentifier("library-\(section.rawValue.lowercased())-section")
     }
 
     @ViewBuilder

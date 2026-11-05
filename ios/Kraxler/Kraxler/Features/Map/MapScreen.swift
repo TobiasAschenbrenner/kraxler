@@ -41,6 +41,7 @@ struct MapScreen: View {
     @State private var sheetDestination: SheetDestination?
     @State private var pendingAreaFromSearch: ClimbingArea?
     @State private var selectedAreaID: String?
+    @State private var isLocationFocusPending = false
 
     init(
         apiClient: APIClient = APIClient(),
@@ -121,7 +122,17 @@ struct MapScreen: View {
                 return
             }
 
-            viewport = .followPuck(zoom: 14, bearing: .heading)
+            focusOnUserLocation()
+        }
+        .onChange(of: locationAuthorization.locationUpdateID) {
+            guard isLocationFocusPending else {
+                return
+            }
+
+            if let location = locationAuthorization.latestLocation {
+                focusMap(on: location)
+            }
+            isLocationFocusPending = false
         }
         .sheet(item: $sheetDestination, onDismiss: {
             selectedAreaID = nil
@@ -162,13 +173,13 @@ struct MapScreen: View {
     private var mapOrnamentOptions: OrnamentOptions {
         OrnamentOptions(
             scaleBar: ScaleBarViewOptions(
-                position: .bottomTrailing,
+                position: .bottomRight,
                 margins: CGPoint(x: 18, y: 72),
                 visibility: .visible,
                 units: .metric
             ),
             compass: CompassViewOptions(
-                position: .bottomTrailing,
+                position: .bottomRight,
                 margins: CGPoint(x: 18, y: 16),
                 visibility: .visible
             ),
@@ -188,7 +199,7 @@ struct MapScreen: View {
     private var locationControl: some View {
         if locationAuthorization.isAuthorized {
             Button {
-                viewport = .followPuck(zoom: 14, bearing: .heading)
+                focusOnUserLocation()
             } label: {
                 Image(systemName: "location.fill")
             }
@@ -254,10 +265,6 @@ struct MapScreen: View {
                 statusPill {
                     Label("Showing downloaded areas", systemImage: "arrow.down.circle.fill")
                 }
-            } else if model.visibleAreas.isEmpty {
-                statusPill {
-                    Label("No climbing areas in this view", systemImage: "map")
-                }
             }
 
         case .loading:
@@ -314,6 +321,23 @@ struct MapScreen: View {
         viewport = .camera(
             center: area.location.coordinate,
             zoom: 13.5
+        )
+    }
+
+    private func focusOnUserLocation() {
+        isLocationFocusPending = true
+
+        if let location = locationAuthorization.latestLocation {
+            focusMap(on: location)
+        }
+
+        locationAuthorization.requestCurrentLocation()
+    }
+
+    private func focusMap(on location: CLLocation) {
+        viewport = .camera(
+            center: location.coordinate,
+            zoom: 14
         )
     }
 

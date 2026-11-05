@@ -117,7 +117,7 @@ extension View {
         interactive: Bool = false
     ) -> some View {
         glassEffect(
-            .regular.interactive(interactive),
+            interactive ? .clear.interactive() : .regular,
             in: .rect(cornerRadius: cornerRadius)
         )
     }

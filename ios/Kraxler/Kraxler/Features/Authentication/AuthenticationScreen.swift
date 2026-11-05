@@ -1,16 +1,120 @@
 import SwiftUI
 
 struct AuthenticationScreen: View {
-    private enum Mode: String, CaseIterable, Identifiable {
-        case signIn = "Sign in"
-        case createAccount = "Create account"
+    fileprivate enum Mode: String, Hashable {
+        case signIn = "Sign In"
+        case createAccount = "Create Account"
 
-        var id: String { rawValue }
+        var prompt: String {
+            switch self {
+            case .signIn:
+                "Welcome back"
+            case .createAccount:
+                "Create your account"
+            }
+        }
     }
 
     @Environment(AuthSession.self) private var authSession
 
-    @State private var mode: Mode = .signIn
+    var body: some View {
+        ZStack {
+            KraxlerScreenBackground(showsTopography: true)
+
+            if authSession.configurationState == .notConfigured {
+                ContentUnavailableView {
+                    Label("Account setup pending", systemImage: "person.crop.circle.badge.exclamationmark")
+                } description: {
+                    Text("Firebase still needs to be connected before accounts can be used.")
+                }
+            } else {
+                landingContent
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .accessibilityIdentifier("authentication-screen")
+    }
+
+    private var landingContent: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                Spacer(minLength: 126)
+
+                brand
+
+                Spacer(minLength: 88)
+
+                VStack(spacing: 12) {
+                    NavigationLink(value: Mode.createAccount) {
+                        Text("Create Account")
+                    }
+                    .buttonStyle(KraxlerPrimaryButtonStyle())
+                    .accessibilityIdentifier("authentication-create-account")
+
+                    NavigationLink(value: Mode.signIn) {
+                        Text("Sign In")
+                    }
+                    .buttonStyle(KraxlerPrimaryButtonStyle())
+                    .accessibilityIdentifier("authentication-sign-in")
+
+                    divider
+                        .padding(.vertical, 12)
+
+                    SocialAuthenticationButton(
+                        title: "Continue with Apple",
+                        systemImage: "apple.logo"
+                    )
+                    .accessibilityIdentifier("authentication-apple")
+
+                    SocialAuthenticationButton(
+                        title: "Continue with Google",
+                        systemImage: "g.circle.fill"
+                    )
+                    .accessibilityIdentifier("authentication-google")
+                }
+            }
+            .frame(maxWidth: 520)
+            .padding(.horizontal, 28)
+            .padding(.bottom, 36)
+            .frame(maxWidth: .infinity)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .navigationDestination(for: Mode.self) { mode in
+            CredentialsScreen(mode: mode)
+        }
+    }
+
+    private var brand: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text("Kraxler")
+                .font(.system(size: 48, weight: .bold, design: .rounded))
+
+            KraxlerBrandMark(size: 58)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var divider: some View {
+        HStack(spacing: 16) {
+            Rectangle()
+                .fill(.secondary.opacity(0.42))
+                .frame(height: 0.5)
+
+            Text("or")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            Rectangle()
+                .fill(.secondary.opacity(0.42))
+                .frame(height: 0.5)
+        }
+    }
+}
+
+private struct CredentialsScreen: View {
+    let mode: AuthenticationScreen.Mode
+
+    @Environment(AuthSession.self) private var authSession
     @State private var email = ""
     @State private var password = ""
     @State private var isSubmitting = false
@@ -24,122 +128,85 @@ struct AuthenticationScreen: View {
 
     var body: some View {
         ZStack {
-            KraxlerScreenBackground()
+            KraxlerScreenBackground(showsTopography: true)
 
-            if authSession.configurationState == .notConfigured {
-                ContentUnavailableView {
-                    Label("Account setup pending", systemImage: "person.crop.circle.badge.exclamationmark")
-                } description: {
-                    Text("Firebase still needs to be connected before accounts can be used.")
-                }
-            } else {
-                ScrollView {
-                    VStack(spacing: 28) {
-                        header
-                        accountCard
+            ScrollView {
+                VStack(alignment: .leading, spacing: 30) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(mode.prompt)
+                            .font(.largeTitle.bold())
+
+                        Text(mode == .signIn
+                            ? "Sign in to continue to Kraxler."
+                            : "Save climbs, track ticks, and take areas offline.")
+                            .foregroundStyle(.secondary)
                     }
-                    .padding(.horizontal, KraxlerDesign.pagePadding)
-                    .padding(.top, 40)
-                    .padding(.bottom, 28)
-                }
-                .scrollDismissesKeyboard(.interactively)
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: mode)
-        .accessibilityIdentifier("authentication-screen")
-    }
 
-    private var header: some View {
-        VStack(spacing: 14) {
-            KraxlerBrandMark(size: 76)
-
-            Text("Kraxler")
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
-
-            Text("Find climbs. Go offline.")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var accountCard: some View {
-        VStack(spacing: 20) {
-            Picker("Account action", selection: $mode) {
-                ForEach(Mode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("authentication-mode-picker")
-
-            VStack(spacing: 12) {
-                authenticationField(systemImage: "envelope.fill") {
-                    TextField("Email", text: $email)
-                        .focused($focusedField, equals: .email)
-                        .submitLabel(.next)
-                        .onSubmit { focusedField = .password }
-                }
-                    .textContentType(.emailAddress)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .accessibilityIdentifier("authentication-email")
-
-                authenticationField(systemImage: "lock.fill") {
-                    SecureField("Password", text: $password)
-                        .focused($focusedField, equals: .password)
-                        .submitLabel(.go)
-                        .onSubmit {
-                            guard canSubmit, !isSubmitting else { return }
-                            Task { await submit() }
+                    VStack(spacing: 14) {
+                        authenticationField(systemImage: "envelope") {
+                            TextField("Email", text: $email)
+                                .focused($focusedField, equals: .email)
+                                .submitLabel(.next)
+                                .onSubmit { focusedField = .password }
                         }
-                }
-                    .textContentType(mode == .signIn ? .password : .newPassword)
-                    .accessibilityIdentifier("authentication-password")
-            }
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("authentication-email")
 
-            if mode == .createAccount {
-                Label("Use at least six characters", systemImage: "checkmark.shield")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            if let errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("authentication-error")
-            }
-
-            Button {
-                Task {
-                    await submit()
-                }
-            } label: {
-                Group {
-                    if isSubmitting {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Text(mode.rawValue)
+                        authenticationField(systemImage: "lock") {
+                            SecureField("Password", text: $password)
+                                .focused($focusedField, equals: .password)
+                                .submitLabel(.go)
+                                .onSubmit {
+                                    guard canSubmit, !isSubmitting else { return }
+                                    Task { await submit() }
+                                }
+                        }
+                        .textContentType(mode == .signIn ? .password : .newPassword)
+                        .accessibilityIdentifier("authentication-password")
                     }
+
+                    if mode == .createAccount {
+                        Label("Use at least six characters", systemImage: "checkmark.shield")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("authentication-error")
+                    }
+
+                    Button {
+                        Task { await submit() }
+                    } label: {
+                        Group {
+                            if isSubmitting {
+                                ProgressView()
+                            } else {
+                                Text(mode.rawValue)
+                            }
+                        }
+                        .frame(height: 22)
+                    }
+                    .buttonStyle(KraxlerPrimaryButtonStyle())
+                    .disabled(!canSubmit || isSubmitting)
+                    .accessibilityIdentifier("authentication-submit")
                 }
-                .frame(height: 22)
+                .frame(maxWidth: 520)
+                .padding(.horizontal, 24)
+                .padding(.top, 36)
+                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(KraxlerPrimaryButtonStyle())
-            .disabled(!canSubmit || isSubmitting)
-            .opacity(canSubmit ? 1 : 0.46)
-            .accessibilityIdentifier("authentication-submit")
+            .scrollDismissesKeyboard(.interactively)
         }
-        .padding(20)
-        .background(
-            Color(.secondarySystemGroupedBackground).opacity(0.9),
-            in: RoundedRectangle(cornerRadius: 24)
-        )
-        .shadow(color: .black.opacity(0.06), radius: 24, y: 12)
+        .navigationTitle(mode.rawValue)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 
     private func authenticationField<FieldContent: View>(
@@ -148,17 +215,21 @@ struct AuthenticationScreen: View {
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .foregroundStyle(KraxlerDesign.accent)
+                .foregroundStyle(.secondary)
                 .frame(width: 22)
 
             content()
         }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 52)
+        .padding(.horizontal, 16)
+        .frame(minHeight: 56)
         .background(
-            Color(.tertiarySystemGroupedBackground),
+            Color(.secondarySystemBackground).opacity(0.94),
             in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
+                .stroke(.primary.opacity(0.08), lineWidth: 0.5)
+        }
     }
 
     private var canSubmit: Bool {
@@ -169,9 +240,7 @@ struct AuthenticationScreen: View {
         isSubmitting = true
         errorMessage = nil
 
-        defer {
-            isSubmitting = false
-        }
+        defer { isSubmitting = false }
 
         do {
             switch mode {
@@ -182,6 +251,38 @@ struct AuthenticationScreen: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct SocialAuthenticationButton: View {
+    let title: String
+    let systemImage: String
+
+    @State private var showsComingSoon = false
+
+    var body: some View {
+        Button {
+            showsComingSoon = true
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 54)
+        }
+        .buttonStyle(.plain)
+        .background(
+            Color(.secondarySystemBackground).opacity(0.88),
+            in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
+                .stroke(.primary.opacity(0.08), lineWidth: 0.5)
+        }
+        .alert("Coming soon", isPresented: $showsComingSoon) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("This sign-in option will be connected in a later milestone.")
         }
     }
 }

@@ -36,7 +36,7 @@ struct MainTabView: View {
                 )
             }
         }
-        .tint(.orange)
+        .tint(KraxlerDesign.accent)
         .task {
             await offlineDownloadsStore.load()
         }

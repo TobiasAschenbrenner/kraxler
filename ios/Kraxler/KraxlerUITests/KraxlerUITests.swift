@@ -63,7 +63,11 @@ final class KraxlerUITests: XCTestCase {
             app.descendants(matching: .any)["authentication-screen"]
                 .waitForExistence(timeout: 5)
         )
-        XCTAssertTrue(app.buttons["authentication-submit"].exists)
+        XCTAssertTrue(app.buttons["authentication-create-account"].exists)
+        XCTAssertTrue(app.buttons["authentication-sign-in"].exists)
+        XCTAssertTrue(app.buttons["authentication-apple"].exists)
+        XCTAssertTrue(app.buttons["authentication-google"].exists)
+        XCTAssertFalse(app.buttons["authentication-submit"].exists)
         XCTAssertFalse(app.tabBars.buttons["Map"].exists)
     }
 

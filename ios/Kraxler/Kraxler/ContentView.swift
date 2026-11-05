@@ -72,15 +72,18 @@ struct ContentView: View {
     private var authenticatedContent: some View {
         switch authSession.configurationState {
         case .loading:
-            VStack(spacing: 16) {
-                Image(systemName: "mountain.2.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.orange)
-                Text("Kraxler")
-                    .font(.title.bold())
-                ProgressView()
+            ZStack {
+                KraxlerScreenBackground(showsTopography: true)
+
+                VStack(spacing: 18) {
+                    HStack(spacing: 10) {
+                        Text("Kraxler")
+                            .font(.largeTitle.bold())
+                        KraxlerBrandMark(size: 44)
+                    }
+                    ProgressView()
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityIdentifier("authentication-loading")
 
         case .notConfigured:

@@ -19,6 +19,7 @@ struct ProfileScreen: View {
             .scrollContentBackground(.hidden)
             .background(KraxlerScreenBackground())
             .navigationTitle("Profile")
+            .tint(KraxlerDesign.accent)
             .alert(
                 "Sign out failed",
                 isPresented: Binding(
@@ -39,11 +40,9 @@ struct ProfileScreen: View {
             HStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(KraxlerDesign.accent.gradient)
+                        .fill(Color(.secondarySystemBackground))
 
-                    Image(systemName: "person.fill")
-                        .font(.title2)
-                        .foregroundStyle(.white)
+                    KraxlerBrandMark(size: 34)
                 }
                 .frame(width: 58, height: 58)
                 .accessibilityHidden(true)
@@ -61,7 +60,7 @@ struct ProfileScreen: View {
             }
             .padding(.vertical, 8)
         }
-        .listRowBackground(KraxlerDesign.accent.opacity(0.1))
+        .listRowBackground(Color(.secondarySystemGroupedBackground))
     }
 
     private var downloadsSection: some View {

@@ -20,6 +20,7 @@ struct DownloadedAreasScreen: View {
             }
         }
         .background(KraxlerScreenBackground())
+        .tint(KraxlerDesign.accent)
         .navigationTitle("Downloads")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -44,7 +45,7 @@ struct DownloadedAreasScreen: View {
             .font(.title2)
             .foregroundStyle(
                 offlineDownloadsStore.isAvailableOffline(areaID: manifest.area.id)
-                    ? .orange
+                    ? KraxlerDesign.accent
                     : .secondary
             )
             .accessibilityHidden(true)

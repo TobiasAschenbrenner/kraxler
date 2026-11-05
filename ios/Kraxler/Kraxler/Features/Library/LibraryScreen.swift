@@ -71,32 +71,25 @@ struct LibraryScreen: View {
 
         case .loaded:
             List {
-                ForEach(groupedRoutes, id: \.areaID) { group in
-                    Section(areaName(from: group.areaID)) {
-                        ForEach(group.routes) { personalRoute in
-                            NavigationLink {
-                                RouteDetailScreen(
-                                    routeID: personalRoute.routeId,
-                                    climbingRepository: climbingRepository,
-                                    initialRoute: personalRoute.route,
-                                    personalRoutesStore: personalRoutesStore
-                                )
-                            } label: {
-                                RouteSummaryRow(
-                                    route: personalRoute.route,
-                                    statusSymbol: selectedSection == .saved
-                                        ? "bookmark.fill"
-                                        : "checkmark.circle.fill",
-                                    statusColor: selectedSection == .saved
-                                        ? KraxlerDesign.accent
-                                        : KraxlerDesign.success
-                                )
-                            }
-                            .accessibilityIdentifier(
-                                "library-route-\(personalRoute.routeId)"
-                            )
-                        }
+                ForEach(displayedRoutes.sorted(by: routeNameAscending)) { personalRoute in
+                    NavigationLink {
+                        RouteDetailScreen(
+                            routeID: personalRoute.routeId,
+                            climbingRepository: climbingRepository,
+                            initialRoute: personalRoute.route,
+                            personalRoutesStore: personalRoutesStore
+                        )
+                    } label: {
+                        RouteSummaryRow(
+                            route: personalRoute.route,
+                            statusSymbol: selectedSection == .saved
+                                ? "bookmark.fill"
+                                : "checkmark.circle.fill"
+                        )
                     }
+                    .accessibilityIdentifier(
+                        "library-route-\(personalRoute.routeId)"
+                    )
                 }
             }
             .listStyle(.insetGrouped)
@@ -132,19 +125,8 @@ struct LibraryScreen: View {
         }
     }
 
-    private var groupedRoutes: [(areaID: String, routes: [PersonalRoute])] {
-        Dictionary(grouping: displayedRoutes, by: { $0.route.areaId })
-            .map { areaID, routes in
-                (areaID, routes.sorted { $0.route.name < $1.route.name })
-            }
-            .sorted { areaName(from: $0.areaID) < areaName(from: $1.areaID) }
-    }
-
-    private func areaName(from areaID: String) -> String {
-        areaID
-            .split(whereSeparator: { $0 == "-" || $0 == "_" })
-            .map { $0.capitalized }
-            .joined(separator: " ")
+    private func routeNameAscending(_ lhs: PersonalRoute, _ rhs: PersonalRoute) -> Bool {
+        lhs.route.name.localizedStandardCompare(rhs.route.name) == .orderedAscending
     }
 
     private func routeCount(for section: LibrarySection) -> Int {

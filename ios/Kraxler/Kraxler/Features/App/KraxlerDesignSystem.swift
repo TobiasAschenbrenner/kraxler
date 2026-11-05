@@ -2,7 +2,6 @@ import SwiftUI
 
 enum KraxlerDesign {
     static let accent = Color(red: 0.08, green: 0.68, blue: 0.94)
-    static let success = Color.green
     static let warning = Color.red
     static let pagePadding: CGFloat = 20
     static let cardRadius: CGFloat = 22

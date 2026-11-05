@@ -112,7 +112,7 @@ struct RouteDetailScreen: View {
                             ? "checkmark.circle.fill"
                             : "checkmark.circle",
                         isActive: personalRouteState.isTicked,
-                        color: KraxlerDesign.success
+                        color: KraxlerDesign.accent
                     ) {
                         await updatePersonalRoute(
                             route: route,
@@ -121,12 +121,6 @@ struct RouteDetailScreen: View {
                         )
                     }
                     .accessibilityIdentifier("route-tick-button")
-                }
-
-                if isUpdatingPersonalRoute {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityLabel("Updating your library")
                 }
 
                 if let personalRouteErrorMessage {
@@ -210,6 +204,13 @@ struct RouteDetailScreen: View {
             return
         }
 
+        let previousState = personalRouteState
+        personalRouteState = PersonalRouteState(
+            routeId: route.id,
+            isSaved: isSaved,
+            isTicked: isTicked,
+            tickedAt: isTicked ? previousState.tickedAt : nil
+        )
         isUpdatingPersonalRoute = true
         personalRouteErrorMessage = nil
 
@@ -224,6 +225,7 @@ struct RouteDetailScreen: View {
                 isTicked: isTicked
             )
         } catch {
+            personalRouteState = previousState
             personalRouteErrorMessage = "Your library could not be updated."
         }
     }

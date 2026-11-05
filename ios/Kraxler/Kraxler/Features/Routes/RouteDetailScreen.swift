@@ -303,7 +303,8 @@ private struct RouteDetailContent<Actions: View>: View {
             .allowHitTesting(false)
         }
         .mapStyle(mapStyle)
-        .allowsHitTesting(false)
+        .gestureOptions(staticMapGestureOptions)
+        .ornamentOptions(staticMapOrnamentOptions)
         .frame(height: 280)
         .frame(maxWidth: .infinity, alignment: .leading)
         .containerRelativeFrame(.horizontal)
@@ -331,6 +332,37 @@ private struct RouteDetailContent<Actions: View>: View {
             showPlaceLabels: false,
             showRoadLabels: true,
             show3dObjects: false
+        )
+    }
+
+    private var staticMapGestureOptions: GestureOptions {
+        GestureOptions(
+            panEnabled: false,
+            pinchEnabled: false,
+            rotateEnabled: false,
+            simultaneousRotateAndPinchZoomEnabled: false,
+            pinchZoomEnabled: false,
+            pinchPanEnabled: false,
+            pitchEnabled: false,
+            doubleTapToZoomInEnabled: false,
+            doubleTouchToZoomOutEnabled: false,
+            quickZoomEnabled: false
+        )
+    }
+
+    private var staticMapOrnamentOptions: OrnamentOptions {
+        OrnamentOptions(
+            scaleBar: ScaleBarViewOptions(visibility: .hidden),
+            compass: CompassViewOptions(visibility: .hidden),
+            logo: LogoViewOptions(
+                position: .bottomLeading,
+                margins: CGPoint(x: 12, y: 10)
+            ),
+            attributionButton: AttributionButtonOptions(
+                position: .bottomTrailing,
+                margins: CGPoint(x: 12, y: 10),
+                tintColor: .label
+            )
         )
     }
 

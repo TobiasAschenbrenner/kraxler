@@ -95,12 +95,7 @@ struct MapScreen: View {
                         }
                     }
                     .mapStyle(mapStyle)
-                    .ornamentOptions(
-                        OrnamentOptions(
-                            scaleBar: ScaleBarViewOptions(visibility: .visible),
-                            compass: CompassViewOptions(visibility: .visible)
-                        )
-                    )
+                    .ornamentOptions(mapOrnamentOptions)
                     .onMapIdle { _ in
                         updateVisibleBounds(
                             using: proxy,
@@ -161,6 +156,31 @@ struct MapScreen: View {
             showPlaceLabels: true,
             showRoadLabels: true,
             show3dObjects: false
+        )
+    }
+
+    private var mapOrnamentOptions: OrnamentOptions {
+        OrnamentOptions(
+            scaleBar: ScaleBarViewOptions(
+                position: .bottomTrailing,
+                margins: CGPoint(x: 18, y: 72),
+                visibility: .visible,
+                units: .metric
+            ),
+            compass: CompassViewOptions(
+                position: .bottomTrailing,
+                margins: CGPoint(x: 18, y: 16),
+                visibility: .visible
+            ),
+            logo: LogoViewOptions(
+                position: .bottomLeading,
+                margins: CGPoint(x: 16, y: 12)
+            ),
+            attributionButton: AttributionButtonOptions(
+                position: .bottomLeading,
+                margins: CGPoint(x: 16, y: 44),
+                tintColor: .label
+            )
         )
     }
 
@@ -358,13 +378,13 @@ private struct MapAreaMarker: View {
             }
 
             Circle()
-                .fill(isSelected ? KraxlerDesign.accent : Color(.systemGray3))
-                .frame(width: isSelected ? 10 : 9, height: isSelected ? 10 : 9)
+                .fill(KraxlerDesign.accent)
+                .frame(width: isSelected ? 12 : 11, height: isSelected ? 12 : 11)
                 .overlay {
                     Circle()
-                        .stroke(.white.opacity(0.9), lineWidth: 1.5)
+                        .stroke(.white, lineWidth: 2)
                 }
-                .shadow(color: .black.opacity(0.24), radius: 3, y: 1)
+                .shadow(color: .black.opacity(0.38), radius: 4, y: 1)
         }
         .frame(width: 34, height: 34)
         .animation(.snappy(duration: 0.22), value: isSelected)

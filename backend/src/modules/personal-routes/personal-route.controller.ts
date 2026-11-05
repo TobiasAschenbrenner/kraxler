@@ -3,6 +3,7 @@ import { isValidObjectId, Types } from "mongoose";
 import { z } from "zod";
 
 import { ApiError } from "../../errors/api-error.js";
+import { AreaModel } from "../areas/area.model.js";
 import { RouteModel } from "../routes/route.model.js";
 import { serializeRoute } from "../routes/route.controller.js";
 import { PersonalRouteModel } from "./personal-route.model.js";
@@ -63,8 +64,17 @@ export const listPersonalRoutes: RequestHandler = async (
     })
       .lean()
       .exec();
+    const areas = await AreaModel.find({
+      _id: { $in: routes.map(({ areaId }) => areaId) },
+    })
+      .select({ name: 1 })
+      .lean()
+      .exec();
     const routesById = new Map(
       routes.map((route) => [route._id.toString(), route]),
+    );
+    const areaNamesById = new Map(
+      areas.map((area) => [area._id.toString(), area.name]),
     );
 
     const data = personalRoutes.flatMap((personalRoute) => {
@@ -77,6 +87,7 @@ export const listPersonalRoutes: RequestHandler = async (
       return [
         {
           route: serializeRoute(route),
+          areaName: areaNamesById.get(route.areaId.toString()),
           ...serializeState(
             personalRoute.routeId,
             personalRoute.isSaved,

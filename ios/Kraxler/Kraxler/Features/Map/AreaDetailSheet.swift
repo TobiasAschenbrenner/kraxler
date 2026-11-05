@@ -113,6 +113,8 @@ struct AreaDetailSheet: View {
                                 RouteDetailScreen(
                                     routeID: route.id,
                                     climbingRepository: climbingRepository,
+                                    initialRoute: route,
+                                    areaName: area.name,
                                     personalRoutesStore: personalRoutesStore
                                 )
                             } label: {

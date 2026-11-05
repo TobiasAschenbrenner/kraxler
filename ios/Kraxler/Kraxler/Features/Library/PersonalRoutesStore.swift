@@ -16,32 +16,43 @@ final class PersonalRoutesStore {
 
     private let apiClient: APIClient
     private var statesByRouteID: [String: PersonalRouteState] = [:]
+    private var isLoading = false
 
     init(apiClient: APIClient) {
         self.apiClient = apiClient
     }
 
     func load(force: Bool = false) async {
-        if !force, loadState == .loaded {
+        if isLoading || (!force && loadState == .loaded) {
             return
         }
 
-        loadState = .loading
+        let hasExistingContent = loadState == .loaded || !routes.isEmpty
+        isLoading = true
+        if !hasExistingContent {
+            loadState = .loading
+        }
+
+        defer {
+            isLoading = false
+        }
 
         do {
             let personalRoutes = try await apiClient.personalRoutes()
-            guard !Task.isCancelled else {
-                return
-            }
+            try Task.checkCancellation()
             routes = personalRoutes
             statesByRouteID = Dictionary(
                 uniqueKeysWithValues: personalRoutes.map { ($0.routeId, $0.state) }
             )
             loadState = .loaded
         } catch is CancellationError {
-            return
+            loadState = hasExistingContent ? .loaded : .idle
         } catch {
-            loadState = .failed("Your routes could not be loaded.")
+            if hasExistingContent {
+                loadState = .loaded
+            } else {
+                loadState = .failed("Your routes could not be loaded.")
+            }
         }
     }
 
@@ -57,6 +68,7 @@ final class PersonalRoutesStore {
 
     func update(
         route: ClimbingRoute,
+        areaName: String? = nil,
         isSaved: Bool,
         isTicked: Bool
     ) async throws -> PersonalRouteState {
@@ -67,7 +79,7 @@ final class PersonalRoutesStore {
             isTicked: isTicked,
             tickedAt: isTicked ? previousState.tickedAt : nil
         )
-        apply(optimisticState, to: route)
+        apply(optimisticState, to: route, areaName: areaName)
 
         do {
             let confirmedState = try await apiClient.updatePersonalRouteState(
@@ -75,11 +87,11 @@ final class PersonalRoutesStore {
                 isSaved: isSaved,
                 isTicked: isTicked
             )
-            apply(confirmedState, to: route)
+            apply(confirmedState, to: route, areaName: areaName)
             loadState = .loaded
             return confirmedState
         } catch {
-            apply(previousState, to: route)
+            apply(previousState, to: route, areaName: areaName)
             throw error
         }
     }
@@ -90,7 +102,11 @@ final class PersonalRoutesStore {
         loadState = .idle
     }
 
-    private func apply(_ state: PersonalRouteState, to route: ClimbingRoute) {
+    private func apply(
+        _ state: PersonalRouteState,
+        to route: ClimbingRoute,
+        areaName: String?
+    ) {
         statesByRouteID[route.id] = state
 
         guard state.isSaved || state.isTicked else {
@@ -98,8 +114,11 @@ final class PersonalRoutesStore {
             return
         }
 
+        let knownAreaName = areaName
+            ?? routes.first(where: { $0.routeId == route.id })?.areaName
         let personalRoute = PersonalRoute(
             route: route,
+            areaName: knownAreaName,
             routeId: route.id,
             isSaved: state.isSaved,
             isTicked: state.isTicked,

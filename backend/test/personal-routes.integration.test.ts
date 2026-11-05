@@ -188,6 +188,7 @@ describe("GET /api/v1/me/routes", () => {
         id: routeId.toString(),
         name: "La Marie Rose",
       }),
+      areaName: "Bas Cuvier",
       routeId: routeId.toString(),
       isSaved: true,
       isTicked: true,

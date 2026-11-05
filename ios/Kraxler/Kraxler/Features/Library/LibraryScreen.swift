@@ -1,6 +1,14 @@
 import SwiftUI
 
 struct LibraryScreen: View {
+    private struct AreaRouteGroup: Identifiable {
+        let areaID: String
+        let areaName: String
+        let routes: [PersonalRoute]
+
+        var id: String { areaID }
+    }
+
     private enum LibrarySection: String, CaseIterable, Identifiable {
         case saved = "Saved"
         case ticked = "Ticked"
@@ -41,7 +49,7 @@ struct LibraryScreen: View {
     private var sectionPicker: some View {
         Picker("Library section", selection: $selectedSection) {
             ForEach(LibrarySection.allCases) { section in
-                Text("\(section.rawValue)  \(routeCount(for: section))")
+                Text(section.rawValue)
                     .tag(section)
                     .accessibilityIdentifier(
                         "library-\(section.rawValue.lowercased())-section"
@@ -71,25 +79,30 @@ struct LibraryScreen: View {
 
         case .loaded:
             List {
-                ForEach(displayedRoutes.sorted(by: routeNameAscending)) { personalRoute in
-                    NavigationLink {
-                        RouteDetailScreen(
-                            routeID: personalRoute.routeId,
-                            climbingRepository: climbingRepository,
-                            initialRoute: personalRoute.route,
-                            personalRoutesStore: personalRoutesStore
-                        )
-                    } label: {
-                        RouteSummaryRow(
-                            route: personalRoute.route,
-                            statusSymbol: selectedSection == .saved
-                                ? "bookmark.fill"
-                                : "checkmark.circle.fill"
-                        )
+                ForEach(groupedRoutes) { group in
+                    Section(group.areaName) {
+                        ForEach(group.routes) { personalRoute in
+                            NavigationLink {
+                                RouteDetailScreen(
+                                    routeID: personalRoute.routeId,
+                                    climbingRepository: climbingRepository,
+                                    initialRoute: personalRoute.route,
+                                    areaName: personalRoute.areaName,
+                                    personalRoutesStore: personalRoutesStore
+                                )
+                            } label: {
+                                RouteSummaryRow(
+                                    route: personalRoute.route,
+                                    statusSymbol: selectedSection == .saved
+                                        ? "bookmark.fill"
+                                        : "checkmark.circle.fill"
+                                )
+                            }
+                            .accessibilityIdentifier(
+                                "library-route-\(personalRoute.routeId)"
+                            )
+                        }
                     }
-                    .accessibilityIdentifier(
-                        "library-route-\(personalRoute.routeId)"
-                    )
                 }
             }
             .listStyle(.insetGrouped)
@@ -129,14 +142,18 @@ struct LibraryScreen: View {
         lhs.route.name.localizedStandardCompare(rhs.route.name) == .orderedAscending
     }
 
-    private func routeCount(for section: LibrarySection) -> Int {
-        personalRoutesStore.routes.count { personalRoute in
-            switch section {
-            case .saved:
-                personalRoute.isSaved
-            case .ticked:
-                personalRoute.isTicked
-            }
+    private var groupedRoutes: [AreaRouteGroup] {
+        let routesByArea = Dictionary(grouping: displayedRoutes, by: \.route.areaId)
+
+        return routesByArea.map { areaID, routes in
+            AreaRouteGroup(
+                areaID: areaID,
+                areaName: routes.compactMap(\.areaName).first ?? "Other areas",
+                routes: routes.sorted(by: routeNameAscending)
+            )
+        }
+        .sorted {
+            $0.areaName.localizedStandardCompare($1.areaName) == .orderedAscending
         }
     }
 

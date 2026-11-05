@@ -322,6 +322,7 @@ struct KraxlerTests {
                       "grade": { "system": "fontainebleau", "value": "6A", "rank": 22 },
                       "styles": ["overhang"]
                     },
+                    "areaName": "Bas Cuvier",
                     "routeId": "route-1",
                     "isSaved": true,
                     "isTicked": false
@@ -335,8 +336,51 @@ struct KraxlerTests {
         let personalRoutes = try await client.personalRoutes()
 
         #expect(personalRoutes.map(\.route.name) == ["La Marie Rose"])
+        #expect(personalRoutes.first?.areaName == "Bas Cuvier")
         #expect(personalRoutes.first?.isSaved == true)
         #expect(personalRoutes.first?.isTicked == false)
+    }
+
+    @Test
+    func keepsLoadedPersonalRoutesVisibleWhenRefreshFails() async {
+        let requests = ThreadSafeCounter()
+        let client = makeClient(authTokenProvider: { "firebase-id-token" }) { request in
+            guard requests.incrementAndGet() == 1 else {
+                throw URLError(.cannotLoadFromNetwork)
+            }
+
+            return Self.response(
+                for: request,
+                body: """
+                {
+                  "data": [{
+                    "route": {
+                      "id": "route-1",
+                      "areaId": "area-1",
+                      "name": "La Marie Rose",
+                      "location": { "type": "Point", "coordinates": [2.63823, 48.44704] },
+                      "discipline": "bouldering",
+                      "grade": { "system": "fontainebleau", "value": "6A", "rank": 22 },
+                      "styles": ["overhang"]
+                    },
+                    "areaName": "Bas Cuvier",
+                    "routeId": "route-1",
+                    "isSaved": true,
+                    "isTicked": false
+                  }],
+                  "meta": { "count": 1 }
+                }
+                """
+            )
+        }
+        let store = PersonalRoutesStore(apiClient: client)
+
+        await store.load()
+        await store.load(force: true)
+
+        #expect(store.loadState == .loaded)
+        #expect(store.routes.map(\.route.name) == ["La Marie Rose"])
+        #expect(requests.value == 2)
     }
 
     @Test
@@ -947,4 +991,20 @@ private final class URLProtocolStub: URLProtocol, @unchecked Sendable {
     }
 
     override func stopLoading() {}
+}
+
+private final class ThreadSafeCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.withLock { count }
+    }
+
+    func incrementAndGet() -> Int {
+        lock.withLock {
+            count += 1
+            return count
+        }
+    }
 }

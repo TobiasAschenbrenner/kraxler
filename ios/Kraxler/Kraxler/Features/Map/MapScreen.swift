@@ -42,6 +42,7 @@ struct MapScreen: View {
     @State private var pendingAreaFromSearch: ClimbingArea?
     @State private var selectedAreaID: String?
     @State private var isLocationFocusPending = false
+    @State private var mapScale: CompactMapScale
 
     init(
         apiClient: APIClient = APIClient(),
@@ -68,6 +69,12 @@ struct MapScreen: View {
             initialValue: .camera(center: Self.initialCenter, zoom: 4.8)
         )
         _requestedBounds = State(initialValue: Self.initialBounds)
+        _mapScale = State(
+            initialValue: CompactMapScale(
+                latitude: Self.initialCenter.latitude,
+                zoom: 4.8
+            )
+        )
     }
 
     var body: some View {
@@ -102,6 +109,7 @@ struct MapScreen: View {
                             using: proxy,
                             mapSize: geometry.size
                         )
+                        updateMapScale(using: proxy)
                     }
                     .ignoresSafeArea()
                 }
@@ -173,10 +181,7 @@ struct MapScreen: View {
     private var mapOrnamentOptions: OrnamentOptions {
         OrnamentOptions(
             scaleBar: ScaleBarViewOptions(
-                position: .bottomRight,
-                margins: CGPoint(x: 18, y: 72),
-                visibility: .visible,
-                units: .metric
+                visibility: .hidden
             ),
             compass: CompassViewOptions(
                 position: .bottomRight,
@@ -225,11 +230,15 @@ struct MapScreen: View {
 
     private var mapHeader: some View {
         HStack(alignment: .top, spacing: 14) {
-            HStack(spacing: 9) {
-                Text("Kraxler")
-                    .font(.system(.title, design: .rounded, weight: .bold))
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 9) {
+                    Text("Kraxler")
+                        .font(.system(.title, design: .rounded, weight: .bold))
 
-                KraxlerBrandMark(size: 38)
+                    KraxlerBrandMark(size: 38)
+                }
+
+                CompactMapScaleView(scale: mapScale)
             }
             .padding(.top, 8)
 
@@ -359,6 +368,18 @@ struct MapScreen: View {
         )
     }
 
+    private func updateMapScale(using proxy: MapProxy) {
+        guard let map = proxy.map else {
+            return
+        }
+
+        let camera = map.cameraState
+        mapScale = CompactMapScale(
+            latitude: camera.center.latitude,
+            zoom: camera.zoom
+        )
+    }
+
     private func presentPendingAreaFromSearch() {
         guard let area = pendingAreaFromSearch else {
             return
@@ -370,6 +391,65 @@ struct MapScreen: View {
             selectedAreaID = area.id
             sheetDestination = .area(area)
         }
+    }
+}
+
+nonisolated struct CompactMapScale: Equatable, Sendable {
+    let distanceMeters: Double
+    let width: CGFloat
+
+    init(
+        latitude: CLLocationDegrees,
+        zoom: CGFloat,
+        maximumWidth: CGFloat = 120
+    ) {
+        let metersPerPoint = Projection.metersPerPoint(
+            for: latitude,
+            zoom: zoom
+        )
+        let maximumDistance = max(metersPerPoint * Double(maximumWidth), 1)
+        let magnitude = pow(10, floor(log10(maximumDistance)))
+        let normalizedDistance = maximumDistance / magnitude
+        let factor = [5.0, 2.5, 2.0, 1.0]
+            .first(where: { $0 <= normalizedDistance }) ?? 1
+        let distance = factor * magnitude
+
+        distanceMeters = distance
+        width = min(maximumWidth, CGFloat(distance / metersPerPoint))
+    }
+
+    var label: String {
+        if distanceMeters >= 1_000 {
+            let kilometers = distanceMeters / 1_000
+            return kilometers.rounded() == kilometers
+                ? "\(Int(kilometers)) km"
+                : "\(kilometers.formatted(.number.precision(.fractionLength(1)))) km"
+        }
+
+        return "\(Int(distanceMeters.rounded())) m"
+    }
+}
+
+private struct CompactMapScaleView: View {
+    let scale: CompactMapScale
+
+    var body: some View {
+        VStack(spacing: 2) {
+            HStack {
+                Text("0")
+                Spacer(minLength: 8)
+                Text(scale.label)
+            }
+
+            Capsule()
+                .fill(.primary)
+                .frame(height: 2)
+        }
+        .font(.caption2.monospacedDigit().weight(.semibold))
+        .frame(width: scale.width)
+        .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Map scale \(scale.label)")
     }
 }
 

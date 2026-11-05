@@ -71,6 +71,20 @@ struct KraxlerTests {
     }
 
     @Test
+    func createsACompactMapScaleWithinItsMaximumWidth() {
+        let scale = CompactMapScale(
+            latitude: 52.52,
+            zoom: 14,
+            maximumWidth: 120
+        )
+
+        #expect(scale.distanceMeters > 0)
+        #expect(scale.width > 0)
+        #expect(scale.width <= 120)
+        #expect(!scale.label.isEmpty)
+    }
+
+    @Test
     func collapsesOverlappingHierarchyIntoOneClimbingAreaMarker() {
         let location = GeoJSONPoint(
             type: "Point",

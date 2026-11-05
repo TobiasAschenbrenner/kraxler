@@ -70,6 +70,7 @@ struct RouteFilterSheet: View {
                 }
             }
         }
+        .tint(KraxlerDesign.accent)
         .presentationDetents([.large])
     }
 

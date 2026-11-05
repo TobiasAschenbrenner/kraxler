@@ -34,6 +34,7 @@ struct MapSearchSheet: View {
                     }
                 }
         }
+        .tint(KraxlerDesign.accent)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .task(id: query) {
@@ -101,6 +102,8 @@ struct MapSearchSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(KraxlerScreenBackground())
 
         case .failed(let message):
             ContentUnavailableView {
@@ -170,7 +173,7 @@ private struct SearchAreaRow: View {
             }
         } icon: {
             Image(systemName: area.type.searchSymbolName)
-                .foregroundStyle(.orange)
+                .foregroundStyle(KraxlerDesign.accent)
         }
         .padding(.vertical, 4)
     }
@@ -181,19 +184,14 @@ private struct SearchRouteRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(route.grade.value)
-                .font(.subheadline.bold().monospacedDigit())
-                .foregroundStyle(.white)
-                .frame(minWidth: 38, minHeight: 38)
-                .padding(.horizontal, 3)
-                .background(
-                    KraxlerDesign.accent.gradient,
-                    in: RoundedRectangle(cornerRadius: 11)
-                )
-
             VStack(alignment: .leading, spacing: 3) {
-                Text(route.name)
-                    .font(.headline)
+                HStack(spacing: 6) {
+                    Text(route.name)
+                        .font(.headline)
+                    Text(route.grade.value)
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(KraxlerDesign.accent)
+                }
                 Text(route.discipline.displayName)
                     .font(.caption)
                     .foregroundStyle(.secondary)

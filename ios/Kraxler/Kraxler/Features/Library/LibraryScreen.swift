@@ -31,70 +31,28 @@ struct LibraryScreen: View {
 
     private var libraryContent: some View {
         VStack(spacing: 0) {
-            librarySummary
+            sectionPicker
 
             routeList
         }
-        .background(Color(.systemGroupedBackground))
+        .background(KraxlerScreenBackground())
     }
 
-    private var librarySummary: some View {
-        HStack(spacing: 12) {
-            librarySectionButton(
-                .saved,
-                systemImage: "bookmark.fill",
-                color: KraxlerDesign.accent
-            )
-
-            librarySectionButton(
-                .ticked,
-                systemImage: "checkmark.circle.fill",
-                color: KraxlerDesign.success
-            )
+    private var sectionPicker: some View {
+        Picker("Library section", selection: $selectedSection) {
+            ForEach(LibrarySection.allCases) { section in
+                Text("\(section.rawValue)  \(routeCount(for: section))")
+                    .tag(section)
+                    .accessibilityIdentifier(
+                        "library-\(section.rawValue.lowercased())-section"
+                    )
+            }
         }
+        .pickerStyle(.segmented)
         .padding(.horizontal, KraxlerDesign.pagePadding)
-        .padding(.top, 8)
-        .padding(.bottom, 14)
-    }
-
-    private func librarySectionButton(
-        _ section: LibrarySection,
-        systemImage: String,
-        color: Color
-    ) -> some View {
-        let isSelected = selectedSection == section
-
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                selectedSection = section
-            }
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: systemImage)
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? .white : color)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(section.rawValue)
-                        .font(.subheadline.weight(.semibold))
-                    Text(routeCount(for: section).formatted())
-                        .font(.title2.bold().monospacedDigit())
-                }
-
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(isSelected ? .white : .primary)
-            .padding(14)
-            .frame(maxWidth: .infinity)
-            .background(
-                isSelected ? color.gradient : Color(.secondarySystemGroupedBackground).gradient,
-                in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(section.rawValue), \(routeCount(for: section)) routes")
-        .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .accessibilityIdentifier("library-\(section.rawValue.lowercased())-section")
+        .padding(.vertical, 12)
+        .tint(.primary.opacity(0.78))
+        .accessibilityIdentifier("library-section-picker")
     }
 
     @ViewBuilder
@@ -112,26 +70,36 @@ struct LibraryScreen: View {
             )
 
         case .loaded:
-            List(displayedRoutes) { personalRoute in
-                NavigationLink {
-                    RouteDetailScreen(
-                        routeID: personalRoute.routeId,
-                        climbingRepository: climbingRepository,
-                        initialRoute: personalRoute.route,
-                        personalRoutesStore: personalRoutesStore
-                    )
-                } label: {
-                    RouteSummaryRow(
-                        route: personalRoute.route,
-                        statusSymbol: selectedSection == .saved
-                            ? "bookmark.fill"
-                            : "checkmark.circle.fill",
-                        statusColor: selectedSection == .saved ? .orange : .green
-                    )
+            List {
+                ForEach(groupedRoutes, id: \.areaID) { group in
+                    Section(areaName(from: group.areaID)) {
+                        ForEach(group.routes) { personalRoute in
+                            NavigationLink {
+                                RouteDetailScreen(
+                                    routeID: personalRoute.routeId,
+                                    climbingRepository: climbingRepository,
+                                    initialRoute: personalRoute.route,
+                                    personalRoutesStore: personalRoutesStore
+                                )
+                            } label: {
+                                RouteSummaryRow(
+                                    route: personalRoute.route,
+                                    statusSymbol: selectedSection == .saved
+                                        ? "bookmark.fill"
+                                        : "checkmark.circle.fill",
+                                    statusColor: selectedSection == .saved
+                                        ? KraxlerDesign.accent
+                                        : KraxlerDesign.success
+                                )
+                            }
+                            .accessibilityIdentifier(
+                                "library-route-\(personalRoute.routeId)"
+                            )
+                        }
+                    }
                 }
-                .accessibilityIdentifier("library-route-\(personalRoute.routeId)")
             }
-            .listStyle(.plain)
+            .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .refreshable {
                 await personalRoutesStore.load(force: true)
@@ -162,6 +130,21 @@ struct LibraryScreen: View {
                 personalRoute.isTicked
             }
         }
+    }
+
+    private var groupedRoutes: [(areaID: String, routes: [PersonalRoute])] {
+        Dictionary(grouping: displayedRoutes, by: { $0.route.areaId })
+            .map { areaID, routes in
+                (areaID, routes.sorted { $0.route.name < $1.route.name })
+            }
+            .sorted { areaName(from: $0.areaID) < areaName(from: $1.areaID) }
+    }
+
+    private func areaName(from areaID: String) -> String {
+        areaID
+            .split(whereSeparator: { $0 == "-" || $0 == "_" })
+            .map { $0.capitalized }
+            .joined(separator: " ")
     }
 
     private func routeCount(for section: LibrarySection) -> Int {

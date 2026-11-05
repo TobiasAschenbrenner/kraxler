@@ -33,12 +33,14 @@ struct MapScreen: View {
     private let offlineDownloadsStore: OfflineDownloadsStore?
     private let loadsRemoteAreas: Bool
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var model: MapScreenModel
     @State private var locationAuthorization = LocationAuthorizationController()
     @State private var viewport: Viewport
     @State private var requestedBounds: MapBounds
     @State private var sheetDestination: SheetDestination?
     @State private var pendingAreaFromSearch: ClimbingArea?
+    @State private var selectedAreaID: String?
 
     init(
         apiClient: APIClient = APIClient(),
@@ -75,9 +77,10 @@ struct MapScreen: View {
                         ForEvery(model.visibleAreas) { area in
                             MapViewAnnotation(coordinate: area.location.coordinate) {
                                 Button {
+                                    selectedAreaID = area.id
                                     sheetDestination = .area(area)
                                 } label: {
-                                    MapAreaMarker(area: area)
+                                    MapAreaMarker(isSelected: selectedAreaID == area.id)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel(area.name)
@@ -91,7 +94,7 @@ struct MapScreen: View {
                             Puck2D(bearing: .heading)
                         }
                     }
-                    .mapStyle(.standard)
+                    .mapStyle(mapStyle)
                     .ornamentOptions(
                         OrnamentOptions(
                             scaleBar: ScaleBarViewOptions(visibility: .visible),
@@ -104,16 +107,13 @@ struct MapScreen: View {
                             mapSize: geometry.size
                         )
                     }
-                    .ignoresSafeArea(edges: .bottom)
+                    .ignoresSafeArea()
                 }
             }
 
-            titleCard
+            mapHeader
 
             statusOverlay
-        }
-        .safeAreaInset(edge: .bottom, alignment: .trailing) {
-            locationControl
         }
         .task(id: requestedBounds) {
             guard loadsRemoteAreas else {
@@ -129,6 +129,7 @@ struct MapScreen: View {
             viewport = .followPuck(zoom: 14, bearing: .heading)
         }
         .sheet(item: $sheetDestination, onDismiss: {
+            selectedAreaID = nil
             presentPendingAreaFromSearch()
         }) { destination in
             switch destination {
@@ -151,6 +152,18 @@ struct MapScreen: View {
         }
     }
 
+    private var mapStyle: MapStyle {
+        .standard(
+            theme: .monochrome,
+            lightPreset: colorScheme == .dark ? .night : .day,
+            showPointOfInterestLabels: false,
+            showTransitLabels: false,
+            showPlaceLabels: true,
+            showRoadLabels: true,
+            show3dObjects: false
+        )
+    }
+
     @ViewBuilder
     private var locationControl: some View {
         if locationAuthorization.isAuthorized {
@@ -159,9 +172,9 @@ struct MapScreen: View {
             } label: {
                 Image(systemName: "location.fill")
             }
-                .accessibilityLabel("Show my location")
-                .accessibilityIdentifier("map-user-location-button")
-                .locationControlStyle()
+            .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
+            .accessibilityLabel("Show my location")
+            .accessibilityIdentifier("map-user-location-button")
         } else {
             Button {
                 locationAuthorization.requestAuthorization()
@@ -175,45 +188,38 @@ struct MapScreen: View {
                 ? "Allow location access"
                 : "Location access unavailable")
             .accessibilityIdentifier("map-location-permission-button")
-            .locationControlStyle()
+            .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
         }
     }
 
-    private var titleCard: some View {
-        HStack(spacing: 12) {
-            KraxlerBrandMark(size: 42)
-
-            VStack(alignment: .leading, spacing: 2) {
+    private var mapHeader: some View {
+        HStack(alignment: .top, spacing: 14) {
+            HStack(spacing: 9) {
                 Text("Kraxler")
-                    .font(.headline)
+                    .font(.system(.title, design: .rounded, weight: .bold))
 
-                Text(areaCountText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                KraxlerBrandMark(size: 38)
             }
+            .padding(.top, 8)
 
             Spacer()
 
-            Button {
-                sheetDestination = .search
-            } label: {
-                Label("Search", systemImage: "magnifyingglass")
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 13)
-                    .frame(height: 40)
-                    .background(
-                        KraxlerDesign.accent.opacity(0.14),
-                        in: Capsule()
-                    )
+            GlassEffectContainer(spacing: 12) {
+                VStack(spacing: 12) {
+                    Button {
+                        sheetDestination = .search
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .buttonStyle(KraxlerIconButtonStyle())
+                    .accessibilityLabel("Search climbing areas and routes")
+                    .accessibilityIdentifier("map-search-button")
+
+                    locationControl
+                }
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(KraxlerDesign.accent)
-            .accessibilityLabel("Search climbing areas and routes")
-            .accessibilityIdentifier("map-search-button")
         }
-        .padding(10)
-        .kraxlerGlassSurface(cornerRadius: 22)
-        .padding(.horizontal)
+        .padding(.horizontal, KraxlerDesign.pagePadding)
         .padding(.top, 8)
     }
 
@@ -268,7 +274,7 @@ struct MapScreen: View {
             .padding()
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 32)
-            .padding(.top, 92)
+            .padding(.top, 156)
     }
 
     private func statusPill<Content: View>(
@@ -281,16 +287,7 @@ struct MapScreen: View {
         .padding(.horizontal, 13)
         .frame(minHeight: 38)
         .kraxlerGlassSurface(cornerRadius: 19)
-        .padding(.top, 82)
-    }
-
-    private var areaCountText: String {
-        switch model.loadStatus {
-        case .loading where model.visibleAreas.isEmpty:
-            "Finding climbing areas…"
-        default:
-            "\(model.visibleAreas.count) climbing \(model.visibleAreas.count == 1 ? "area" : "areas") in view"
-        }
+        .padding(.top, 156)
     }
 
     private func focusMap(on area: ClimbingArea) {
@@ -326,43 +323,13 @@ struct MapScreen: View {
         pendingAreaFromSearch = nil
         Task { @MainActor in
             await Task.yield()
+            selectedAreaID = area.id
             sheetDestination = .area(area)
         }
     }
 }
 
-private extension View {
-    func locationControlStyle() -> some View {
-        frame(width: 50, height: 50)
-            .foregroundStyle(KraxlerDesign.accent)
-            .kraxlerGlassSurface(cornerRadius: 25, interactive: true)
-            .padding()
-    }
-}
-
 private extension ClimbingArea.AreaType {
-    var symbolName: String {
-        switch self {
-        case .region:
-            "mountain.2.fill"
-        case .climbingArea:
-            "figure.climbing"
-        case .sector:
-            "square.grid.2x2.fill"
-        }
-    }
-
-    var markerColor: Color {
-        switch self {
-        case .region:
-            .blue
-        case .climbingArea:
-            .orange
-        case .sector:
-            .green
-        }
-    }
-
     var annotationPriority: Int {
         switch self {
         case .region:
@@ -376,29 +343,31 @@ private extension ClimbingArea.AreaType {
 }
 
 private struct MapAreaMarker: View {
-    let area: ClimbingArea
+    let isSelected: Bool
 
     var body: some View {
-        VStack(spacing: 3) {
-            Image(systemName: area.type.symbolName)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 34, height: 34)
-                .background(area.type.markerColor, in: Circle())
+        ZStack {
+            if isSelected {
+                Circle()
+                    .fill(KraxlerDesign.accent.opacity(0.22))
+                    .frame(width: 32, height: 32)
+
+                Circle()
+                    .stroke(KraxlerDesign.accent, lineWidth: 3)
+                    .frame(width: 22, height: 22)
+            }
+
+            Circle()
+                .fill(isSelected ? KraxlerDesign.accent : Color(.systemGray3))
+                .frame(width: isSelected ? 10 : 9, height: isSelected ? 10 : 9)
                 .overlay {
                     Circle()
-                        .stroke(.white, lineWidth: 2)
+                        .stroke(.white.opacity(0.9), lineWidth: 1.5)
                 }
-                .shadow(radius: 2, y: 1)
-
-            Text(area.name)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(.regularMaterial, in: Capsule())
+                .shadow(color: .black.opacity(0.24), radius: 3, y: 1)
         }
+        .frame(width: 34, height: 34)
+        .animation(.snappy(duration: 0.22), value: isSelected)
     }
 }
 

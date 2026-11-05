@@ -19,7 +19,12 @@ final class KraxlerUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.staticTexts["Kraxler"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["2 climbing areas in view"].waitForExistence(timeout: 15))
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH 'map-area-'"))
+                .firstMatch
+                .waitForExistence(timeout: 15)
+        )
         let locationControl = app.descendants(matching: .any)
             .matching(
                 NSPredicate(

@@ -59,9 +59,21 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  const fontainebleau = await AreaModel.create({
+    name: "Fontainebleau",
+    type: "region",
+    location: { type: "Point", coordinates: [2.63823, 48.44704] },
+  });
+  const cuvier = await AreaModel.create({
+    name: "Cuvier",
+    type: "climbingArea",
+    parentAreaId: fontainebleau._id,
+    location: { type: "Point", coordinates: [2.63823, 48.44704] },
+  });
   const area = await AreaModel.create({
     name: "Bas Cuvier",
     type: "sector",
+    parentAreaId: cuvier._id,
     location: { type: "Point", coordinates: [2.63823, 48.44704] },
   });
   const route = await RouteModel.create({
@@ -188,7 +200,7 @@ describe("GET /api/v1/me/routes", () => {
         id: routeId.toString(),
         name: "La Marie Rose",
       }),
-      areaName: "Bas Cuvier",
+      areaName: "Cuvier",
       routeId: routeId.toString(),
       isSaved: true,
       isTicked: true,

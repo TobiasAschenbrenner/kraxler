@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { areaRouter } from "./modules/areas/area.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { createPersonalRouteRouter } from "./modules/personal-routes/personal-route.routes.js";
+import { createProfileRouter } from "./modules/profile/profile.routes.js";
 import { routeRouter } from "./modules/routes/route.routes.js";
 import { searchRouter } from "./modules/search/search.routes.js";
 
@@ -37,6 +38,7 @@ export const createApp = (
   expressApp.use("/api/v1", areaRouter);
   expressApp.use("/api/v1", routeRouter);
   expressApp.use("/api/v1", searchRouter);
+  expressApp.use("/api/v1", createProfileRouter(dependencies.verifyAuthToken));
   expressApp.use(
     "/api/v1",
     createPersonalRouteRouter(dependencies.verifyAuthToken),

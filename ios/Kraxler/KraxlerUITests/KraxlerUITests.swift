@@ -89,6 +89,19 @@ final class KraxlerUITests: XCTestCase {
     }
 
     @MainActor
+    func testSignsInWithGoogle() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-test-signed-out")
+        app.launch()
+
+        XCTAssertTrue(app.buttons["authentication-google"].waitForExistence(timeout: 5))
+        app.buttons["authentication-google"].tap()
+
+        XCTAssertTrue(app.tabBars.buttons["Map"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Map"].isSelected)
+    }
+
+    @MainActor
     func testSignsOutFromProfile() throws {
         let app = XCUIApplication()
         app.launchArguments.append("-ui-test-authenticated")

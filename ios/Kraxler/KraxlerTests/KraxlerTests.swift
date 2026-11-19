@@ -10,6 +10,7 @@ import Foundation
 import SwiftData
 import SwiftUI
 import Testing
+import UIKit
 @testable import Kraxler
 
 @Suite(.serialized)
@@ -79,6 +80,21 @@ struct KraxlerTests {
         #expect(authentication.signOutCallCount == 1)
         #expect(session.account == nil)
         #expect(!session.isAuthenticated)
+    }
+
+    @Test
+    func signsInWithGoogleAndPublishesTheAccount() async throws {
+        let authentication = AuthenticationClientSpy(account: nil)
+        let session = AuthSession(client: authentication.client)
+        session.start()
+
+        try await session.signInWithGoogle(
+            presentingViewController: UIViewController()
+        )
+
+        #expect(authentication.googleSignInCallCount == 1)
+        #expect(session.account?.id == "google-account")
+        #expect(session.account?.email == "climber@gmail.com")
     }
 
     @Test
@@ -925,6 +941,7 @@ private final class AuthenticationClientSpy {
     private var account: AuthenticatedAccount?
     private var observer: AuthenticationClient.AccountObserver?
     private(set) var signOutCallCount = 0
+    private(set) var googleSignInCallCount = 0
 
     init(account: AuthenticatedAccount?) {
         self.account = account
@@ -943,6 +960,15 @@ private final class AuthenticationClientSpy {
             signIn: { [self] email, _ in
                 updateAccount(
                     AuthenticatedAccount(id: "signed-in-account", email: email)
+                )
+            },
+            signInWithGoogle: { [self] _ in
+                googleSignInCallCount += 1
+                updateAccount(
+                    AuthenticatedAccount(
+                        id: "google-account",
+                        email: "climber@gmail.com"
+                    )
                 )
             },
             createAccount: { [self] email, _ in

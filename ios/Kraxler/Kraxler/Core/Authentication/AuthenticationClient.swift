@@ -1,6 +1,14 @@
 import FirebaseAuth
 import FirebaseCore
 import Foundation
+import GoogleSignIn
+import UIKit
+
+enum AuthenticationClientError: Error, Equatable {
+    case cancelled
+    case googleClientIDMissing
+    case googleIDTokenMissing
+}
 
 @MainActor
 struct AuthenticationClient {
@@ -9,6 +17,7 @@ struct AuthenticationClient {
     let isConfigured: () -> Bool
     let observeAccount: (@escaping AccountObserver) -> () -> Void
     let signIn: (_ email: String, _ password: String) async throws -> Void
+    let signInWithGoogle: (_ presentingViewController: UIViewController) async throws -> Void
     let createAccount: (_ email: String, _ password: String) async throws -> Void
     let signOut: () throws -> Void
     let idToken: () async throws -> String?
@@ -37,10 +46,37 @@ extension AuthenticationClient {
         signIn: { email, password in
             try await Auth.auth().signIn(withEmail: email, password: password)
         },
+        signInWithGoogle: { presentingViewController in
+            guard let clientID = FirebaseApp.app()?.options.clientID else {
+                throw AuthenticationClientError.googleClientIDMissing
+            }
+
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+
+            let result: GIDSignInResult
+            do {
+                result = try await GIDSignIn.sharedInstance.signIn(
+                    withPresenting: presentingViewController
+                )
+            } catch let error as GIDSignInError where error.code == .canceled {
+                throw AuthenticationClientError.cancelled
+            }
+
+            guard let idToken = result.user.idToken?.tokenString else {
+                throw AuthenticationClientError.googleIDTokenMissing
+            }
+
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: result.user.accessToken.tokenString
+            )
+            try await Auth.auth().signIn(with: credential)
+        },
         createAccount: { email, password in
             try await Auth.auth().createUser(withEmail: email, password: password)
         },
         signOut: {
+            GIDSignIn.sharedInstance.signOut()
             try Auth.auth().signOut()
         },
         idToken: {
@@ -83,6 +119,14 @@ private final class UITestAuthenticationState {
             signIn: { [self] email, _ in
                 updateAccount(
                     AuthenticatedAccount(id: "ui-test-account", email: email)
+                )
+            },
+            signInWithGoogle: { [self] _ in
+                updateAccount(
+                    AuthenticatedAccount(
+                        id: "ui-test-google-account",
+                        email: "climber@gmail.com"
+                    )
                 )
             },
             createAccount: { [self] email, _ in

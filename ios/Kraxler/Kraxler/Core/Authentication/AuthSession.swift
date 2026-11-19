@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 struct AuthenticatedAccount: Equatable, Sendable {
     let id: String
@@ -60,6 +61,14 @@ final class AuthSession {
         }
 
         try await client.signIn(email, password)
+    }
+
+    func signInWithGoogle(presentingViewController: UIViewController) async throws {
+        guard client.isConfigured() else {
+            throw AuthSessionError.notConfigured
+        }
+
+        try await client.signInWithGoogle(presentingViewController)
     }
 
     func createAccount(email: String, password: String) async throws {

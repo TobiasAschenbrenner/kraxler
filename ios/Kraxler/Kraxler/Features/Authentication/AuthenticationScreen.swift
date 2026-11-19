@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct AuthenticationScreen: View {
     fileprivate enum Mode: String, Hashable {
@@ -16,6 +17,9 @@ struct AuthenticationScreen: View {
     }
 
     @Environment(AuthSession.self) private var authSession
+    @State private var errorMessage: String?
+    @State private var isSigningInWithGoogle = false
+    @State private var showsApplePending = false
 
     var body: some View {
         ZStack {
@@ -62,15 +66,33 @@ struct AuthenticationScreen: View {
 
                     SocialAuthenticationButton(
                         title: "Continue with Apple",
-                        systemImage: "apple.logo"
-                    )
+                        systemImage: "apple.logo",
+                        isLoading: false,
+                        isDisabled: isSigningInWithGoogle
+                    ) {
+                        showsApplePending = true
+                    }
+                    .alert("Not available yet", isPresented: $showsApplePending) {
+                        Button("OK", role: .cancel) {}
+                    }
                     .accessibilityIdentifier("authentication-apple")
 
                     SocialAuthenticationButton(
                         title: "Continue with Google",
-                        systemImage: "g.circle.fill"
-                    )
+                        systemImage: "g.circle.fill",
+                        isLoading: isSigningInWithGoogle,
+                        isDisabled: isSigningInWithGoogle
+                    ) {
+                        Task { await signInWithGoogle() }
+                    }
                     .accessibilityIdentifier("authentication-google")
+
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.subheadline)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("authentication-social-error")
+                    }
                 }
             }
             .frame(maxWidth: 520)
@@ -107,6 +129,27 @@ struct AuthenticationScreen: View {
             Rectangle()
                 .fill(.secondary.opacity(0.42))
                 .frame(height: 0.5)
+        }
+    }
+
+    private func signInWithGoogle() async {
+        guard let presentingViewController = UIApplication.shared.kraxlerTopViewController else {
+            errorMessage = "Couldn’t open Google sign-in."
+            return
+        }
+
+        isSigningInWithGoogle = true
+        errorMessage = nil
+        defer { isSigningInWithGoogle = false }
+
+        do {
+            try await authSession.signInWithGoogle(
+                presentingViewController: presentingViewController
+            )
+        } catch AuthenticationClientError.cancelled {
+            return
+        } catch {
+            errorMessage = "Couldn’t sign in with Google."
         }
     }
 }
@@ -258,17 +301,24 @@ private struct CredentialsScreen: View {
 private struct SocialAuthenticationButton: View {
     let title: String
     let systemImage: String
-
-    @State private var showsComingSoon = false
+    let isLoading: Bool
+    let isDisabled: Bool
+    let action: () -> Void
 
     var body: some View {
-        Button {
-            showsComingSoon = true
-        } label: {
-            Label(title, systemImage: systemImage)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 54)
+        Button(action: action) {
+            HStack(spacing: 10) {
+                if isLoading {
+                    ProgressView()
+                } else {
+                    Image(systemName: systemImage)
+                }
+
+                Text(title)
+            }
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 54)
         }
         .buttonStyle(.plain)
         .background(
@@ -279,11 +329,35 @@ private struct SocialAuthenticationButton: View {
             RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
                 .stroke(.primary.opacity(0.08), lineWidth: 0.5)
         }
-        .alert("Coming soon", isPresented: $showsComingSoon) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("This sign-in option will be connected in a later milestone.")
+        .disabled(isDisabled)
+    }
+}
+
+private extension UIApplication {
+    var kraxlerTopViewController: UIViewController? {
+        let rootViewController = connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)?
+            .rootViewController
+
+        return topViewController(from: rootViewController)
+    }
+
+    func topViewController(from viewController: UIViewController?) -> UIViewController? {
+        if let navigationController = viewController as? UINavigationController {
+            return topViewController(from: navigationController.visibleViewController)
         }
+
+        if let tabBarController = viewController as? UITabBarController {
+            return topViewController(from: tabBarController.selectedViewController)
+        }
+
+        if let presentedViewController = viewController?.presentedViewController {
+            return topViewController(from: presentedViewController)
+        }
+
+        return viewController
     }
 }
 

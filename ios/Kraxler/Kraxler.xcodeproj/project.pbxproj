@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		01E98BC57AEB47338734B108 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = C9856C43482344DD83C85D20 /* FirebaseAuth */; };
+		A7D8E9F00112233445566778 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C9F00112233445566778899A /* GoogleSignIn */; };
 		C6D3E4F5061728394A5B6C7D /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = B5C2D3E4F5061728394A5B6C /* MapboxMaps */; };
 		F947F32EAD77442290AB85A1 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9251A487AB744BF8944BD9D9 /* FirebaseCore */; };
 /* End PBXBuildFile section */
@@ -72,6 +73,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				01E98BC57AEB47338734B108 /* FirebaseAuth in Frameworks */,
+				A7D8E9F00112233445566778 /* GoogleSignIn in Frameworks */,
 				C6D3E4F5061728394A5B6C7D /* MapboxMaps in Frameworks */,
 				F947F32EAD77442290AB85A1 /* FirebaseCore in Frameworks */,
 			);
@@ -130,6 +132,7 @@
 			packageProductDependencies = (
 				C9856C43482344DD83C85D20 /* FirebaseAuth */,
 				9251A487AB744BF8944BD9D9 /* FirebaseCore */,
+				C9F00112233445566778899A /* GoogleSignIn */,
 				B5C2D3E4F5061728394A5B6C /* MapboxMaps */,
 			);
 			productName = Kraxler;
@@ -212,6 +215,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				289E904B25D34F18B0FF2C2A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				B8E9F0011223344556677889 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				A4B1C2D3E4F5061728394A5B /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -599,6 +603,14 @@
 				minimumVersion = 11.34.1;
 			};
 		};
+		B8E9F0011223344556677889 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -616,6 +628,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 289E904B25D34F18B0FF2C2A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAuth;
+		};
+		C9F00112233445566778899A /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B8E9F0011223344556677889 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

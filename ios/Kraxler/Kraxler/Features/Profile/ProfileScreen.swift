@@ -1,11 +1,20 @@
 import SwiftUI
 
 struct ProfileScreen: View {
+    private enum Destination: String, Identifiable {
+        case editProfile
+        var id: String { rawValue }
+    }
+
     let offlineDownloadsStore: OfflineDownloadsStore
+    var apiClient: APIClient = APIClient()
 
     @Environment(AuthSession.self) private var authSession
     @AppStorage(AppAppearance.storageKey) private var appearance = AppAppearance.system
     @State private var signOutErrorMessage: String?
+    @State private var profile: UserProfile?
+    @State private var profileLoadFailed = false
+    @State private var destination: Destination?
 
     var body: some View {
         NavigationStack {
@@ -32,24 +41,33 @@ struct ProfileScreen: View {
                 Text(signOutErrorMessage ?? "Please try again.")
             }
         }
+        .task(id: authSession.account?.id) {
+            profile = nil
+            await loadProfile()
+        }
+        .sheet(item: $destination) { _ in
+            EditProfileScreen(
+                profile: profile,
+                account: authSession.account,
+                apiClient: apiClient
+            ) { profile = $0 }
+        }
         .accessibilityIdentifier("profile-screen")
     }
 
     private var identitySection: some View {
         Section {
             HStack(spacing: 16) {
-                ZStack {
-                    Circle()
-                        .fill(Color(.secondarySystemBackground))
-
-                    KraxlerBrandMark(size: 34)
-                }
-                .frame(width: 58, height: 58)
-                .accessibilityHidden(true)
+                ProfileAvatar(
+                    data: profile?.avatarData,
+                    photoURL: profile?.usesDefaultAvatar == true ? nil : authSession.account?.photoURL,
+                    size: 58
+                )
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Climber")
+                    Text(profile?.displayName ?? authSession.account?.displayName ?? "Climber")
                         .font(.title3.bold())
+                        .accessibilityIdentifier("profile-name")
 
                     Text(authSession.account?.email ?? "Not available")
                         .font(.subheadline)
@@ -57,10 +75,30 @@ struct ProfileScreen: View {
                         .lineLimit(1)
                         .accessibilityIdentifier("profile-email")
                 }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    destination = .editProfile
+                } label: {
+                    Image(systemName: "pencil")
+                        .frame(width: 38, height: 38)
+                }
+                .buttonStyle(.glass)
+                .accessibilityLabel("Edit profile")
+                .accessibilityIdentifier("profile-edit")
+                .disabled(profile == nil)
             }
             .padding(.vertical, 8)
+
+            if profileLoadFailed {
+                Button("Retry loading profile", systemImage: "arrow.clockwise") {
+                    Task { await loadProfile() }
+                }
+                .font(.caption)
+            }
         }
-        .listRowBackground(Color(.secondarySystemGroupedBackground))
+        .listRowBackground(KraxlerDesign.sectionBackground)
     }
 
     private var downloadsSection: some View {
@@ -84,6 +122,7 @@ struct ProfileScreen: View {
             }
             .accessibilityIdentifier("profile-downloads")
         }
+        .listRowBackground(KraxlerDesign.sectionBackground)
     }
 
     private var accountSection: some View {
@@ -103,23 +142,29 @@ struct ProfileScreen: View {
             }
             .accessibilityIdentifier("profile-sign-out")
         }
+        .listRowBackground(KraxlerDesign.sectionBackground)
     }
 
     private var appearanceSection: some View {
         Section("Appearance") {
-            KraxlerSettingsLabel(
-                title: "Color scheme",
-                systemImage: "circle.lefthalf.filled"
-            )
+            VStack(alignment: .leading, spacing: 12) {
+                KraxlerSettingsLabel(
+                    title: "Color scheme",
+                    systemImage: "circle.lefthalf.filled"
+                )
 
-            Picker("Appearance", selection: $appearance) {
-                ForEach(AppAppearance.allCases) { appearance in
-                    Text(appearance.displayName).tag(appearance)
+                Picker("Appearance", selection: $appearance) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.displayName).tag(appearance)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("appearance-picker")
             }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("appearance-picker")
+            .padding(.vertical, 8)
         }
+        .listRowBackground(KraxlerDesign.sectionBackground)
     }
 
     private var aboutSection: some View {
@@ -133,6 +178,7 @@ struct ProfileScreen: View {
                 )
             }
         }
+        .listRowBackground(KraxlerDesign.sectionBackground)
     }
 
     private var versionText: String {
@@ -152,6 +198,22 @@ struct ProfileScreen: View {
             build
         case (.none, .none):
             "Unknown"
+        }
+    }
+
+    private func loadProfile() async {
+        let accountID = authSession.account?.id
+        guard accountID != nil else { return }
+        do {
+            let loaded = try await apiClient.userProfile()
+            guard !Task.isCancelled, accountID == authSession.account?.id else { return }
+            profile = loaded
+            profileLoadFailed = false
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            profileLoadFailed = true
         }
     }
 }

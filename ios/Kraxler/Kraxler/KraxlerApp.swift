@@ -40,9 +40,11 @@ struct KraxlerApp: App {
         )
 
         do {
+            let usesCaptureFixtures = ProcessInfo.processInfo.arguments.contains("-ui-test-capture")
             modelContainer = try ModelContainer(
                 for: OfflineAreaRecord.self,
-                OfflineRouteRecord.self
+                OfflineRouteRecord.self,
+                configurations: ModelConfiguration(isStoredInMemoryOnly: _isDebugAssertConfiguration() && usesCaptureFixtures)
             )
         } catch {
             fatalError("The offline database could not be created: \(error)")
@@ -52,11 +54,7 @@ struct KraxlerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(
-                apiClient: APIClient(
-                    authTokenProvider: {
-                        try await authSession.idTokenIfAvailable()
-                    }
-                ),
+                apiClient: apiClient,
                 modelContainer: modelContainer
             )
             .environment(authSession)
@@ -66,5 +64,14 @@ struct KraxlerApp: App {
                 authSession.start()
             }
         }
+    }
+
+    private var apiClient: APIClient {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-test-capture") {
+            return .uiTestCapture { try await authSession.idTokenIfAvailable() }
+        }
+#endif
+        return APIClient { try await authSession.idTokenIfAvailable() }
     }
 }

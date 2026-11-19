@@ -74,7 +74,7 @@ struct LibraryScreen: View {
             ContentUnavailableView(
                 selectedSection == .saved ? "No saved routes" : "No ticked routes",
                 systemImage: selectedSection == .saved ? "bookmark" : "checkmark.circle",
-                description: Text(emptyDescription)
+                description: nil
             )
 
         case .loaded:
@@ -103,6 +103,7 @@ struct LibraryScreen: View {
                             )
                         }
                     }
+                    .listRowBackground(KraxlerDesign.sectionBackground)
                 }
             }
             .listStyle(.insetGrouped)
@@ -157,12 +158,4 @@ struct LibraryScreen: View {
         }
     }
 
-    private var emptyDescription: String {
-        switch selectedSection {
-        case .saved:
-            "Save routes you want to find quickly or climb later."
-        case .ticked:
-            "Mark a route as ticked after you complete it."
-        }
-    }
 }

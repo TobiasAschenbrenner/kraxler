@@ -184,6 +184,7 @@ struct MapScreen: View {
                 ) { area in
                     focusMap(on: area)
                     pendingAreaFromSearch = area
+                    sheetDestination = nil
                 }
             }
         }

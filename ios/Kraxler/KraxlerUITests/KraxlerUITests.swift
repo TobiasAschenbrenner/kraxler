@@ -55,7 +55,8 @@ final class KraxlerUITests: XCTestCase {
             "Bouldering"
         )
         XCTAssertTrue(app.staticTexts["route-detail-description"].exists)
-        XCTAssertTrue(app.staticTexts["route-detail-location"].exists)
+        XCTAssertFalse(app.staticTexts["route-detail-location"].exists)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "Overhang").count, 1)
     }
 
     @MainActor

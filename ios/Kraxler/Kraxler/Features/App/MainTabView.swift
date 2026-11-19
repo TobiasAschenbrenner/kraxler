@@ -10,6 +10,7 @@ struct MainTabView: View {
     let personalRoutesStore: PersonalRoutesStore
     let climbingRepository: ClimbingRepository
     let offlineDownloadsStore: OfflineDownloadsStore
+    var apiClient: APIClient = APIClient()
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: AppTab = .map
@@ -33,7 +34,8 @@ struct MainTabView: View {
 
             Tab("Profile", systemImage: "person.crop.circle", value: .profile) {
                 ProfileScreen(
-                    offlineDownloadsStore: offlineDownloadsStore
+                    offlineDownloadsStore: offlineDownloadsStore,
+                    apiClient: apiClient
                 )
             }
         }

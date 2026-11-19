@@ -46,7 +46,7 @@ struct RouteFilterSheet: View {
                 lengthSection
                 pitchSection
             }
-            .navigationTitle("Route filters")
+            .navigationTitle("Filters")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -46,11 +46,8 @@ struct MapSearchSheet: View {
     private var content: some View {
         switch searchState {
         case .idle:
-            ContentUnavailableView(
-                "Find your next climb",
-                systemImage: "magnifyingglass",
-                description: Text("Search globally by climbing area or route name.")
-            )
+            Color(.systemBackground)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         case .loading:
             ProgressView("Searching…")
@@ -81,6 +78,7 @@ struct MapSearchSheet: View {
                             .accessibilityIdentifier("search-area-\(area.id)")
                         }
                     }
+                    .listRowBackground(KraxlerDesign.sectionBackground)
                 }
 
                 if !results.routes.isEmpty {
@@ -99,6 +97,7 @@ struct MapSearchSheet: View {
                             .accessibilityIdentifier("search-route-\(route.id)")
                         }
                     }
+                    .listRowBackground(KraxlerDesign.sectionBackground)
                 }
             }
             .listStyle(.insetGrouped)
@@ -164,18 +163,15 @@ private struct SearchAreaRow: View {
 
     var body: some View {
         Label {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(area.name)
-                    .font(.headline)
-                Text(area.type.displayName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Text(area.name)
+                .font(.headline)
         } icon: {
             Image(systemName: area.type.searchSymbolName)
                 .foregroundStyle(KraxlerDesign.accent)
         }
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 
@@ -199,26 +195,12 @@ private struct SearchRouteRow: View {
 
             Spacer()
 
-            Image(systemName: "chevron.right")
-                .font(.caption.bold())
-                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
     }
 }
 
 private extension ClimbingArea.AreaType {
-    var displayName: String {
-        switch self {
-        case .region:
-            "Region"
-        case .climbingArea:
-            "Climbing area"
-        case .sector:
-            "Sector"
-        }
-    }
-
     var searchSymbolName: String {
         switch self {
         case .region:

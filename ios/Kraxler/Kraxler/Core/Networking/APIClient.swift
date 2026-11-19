@@ -144,6 +144,23 @@ nonisolated struct APIClient: Sendable {
         return response.data
     }
 
+    func userProfile() async throws -> UserProfile {
+        let response: ItemResponse<UserProfile> = try await authenticatedRequest(
+            url: baseURL.appending(path: "api/v1/me/profile"),
+            method: "GET"
+        )
+        return response.data
+    }
+
+    func updateUserProfile(_ profile: UserProfile) async throws -> UserProfile {
+        let response: ItemResponse<UserProfile> = try await authenticatedRequest(
+            url: baseURL.appending(path: "api/v1/me/profile"),
+            method: "PUT",
+            body: profile
+        )
+        return response.data
+    }
+
     func personalRouteState(routeID: String) async throws -> PersonalRouteState {
         let url = baseURL.appending(path: "api/v1/me/routes/\(routeID)")
         let response: ItemResponse<PersonalRouteState> = try await authenticatedRequest(

@@ -3,6 +3,7 @@ import SwiftUI
 enum KraxlerDesign {
     static let accent = Color(red: 0.08, green: 0.68, blue: 0.94)
     static let warning = Color.red
+    static let sectionBackground = Color(.secondarySystemBackground)
     static let pagePadding: CGFloat = 20
     static let cardRadius: CGFloat = 22
     static let compactRadius: CGFloat = 16
@@ -28,29 +29,11 @@ struct KraxlerBrandMark: View {
     var size: CGFloat = 52
 
     var body: some View {
-        MountainBoltShape()
-            .stroke(
-                KraxlerDesign.accent,
-                style: StrokeStyle(
-                    lineWidth: max(2, size * 0.06),
-                    lineCap: .round,
-                    lineJoin: .round
-                )
-            )
-            .frame(width: size, height: size * 0.58)
+        Image("KraxlerMark")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size * 0.42)
             .accessibilityHidden(true)
-    }
-}
-
-private struct MountainBoltShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.maxY * 0.88))
-        path.addLine(to: CGPoint(x: rect.width * 0.34, y: rect.height * 0.42))
-        path.addLine(to: CGPoint(x: rect.width * 0.48, y: rect.height * 0.60))
-        path.addLine(to: CGPoint(x: rect.width * 0.65, y: rect.height * 0.18))
-        path.addLine(to: CGPoint(x: rect.width, y: rect.height * 0.78))
-        return path
     }
 }
 
@@ -58,37 +41,18 @@ private struct KraxlerTopographicPattern: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Canvas { context, size in
-            let lineColor = colorScheme == .dark
-                ? Color.white.opacity(0.055)
-                : Color.black.opacity(0.045)
-
-            for index in 0..<13 {
-                var path = Path()
-                let offset = CGFloat(index) * 68 - 140
-                path.move(to: CGPoint(x: -40, y: offset))
-                path.addCurve(
-                    to: CGPoint(x: size.width + 40, y: offset + 120),
-                    control1: CGPoint(x: size.width * 0.25, y: offset + 84),
-                    control2: CGPoint(x: size.width * 0.72, y: offset - 34)
+        GeometryReader { geometry in
+            Image("TerrainContours")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFill()
+                .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                .opacity(colorScheme == .dark ? 0.28 : 0.16)
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height
                 )
-                context.stroke(path, with: .color(lineColor), lineWidth: 0.8)
-            }
-
-            for index in 0..<7 {
-                let inset = CGFloat(index) * 18
-                let rect = CGRect(
-                    x: size.width * 0.56 + inset,
-                    y: size.height * 0.12 + inset,
-                    width: max(20, size.width * 0.58 - inset * 2),
-                    height: max(20, size.width * 0.42 - inset * 2)
-                )
-                context.stroke(
-                    Path(ellipseIn: rect),
-                    with: .color(lineColor),
-                    lineWidth: 0.7
-                )
-            }
+                .clipped()
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -134,27 +98,57 @@ extension View {
 }
 
 struct KraxlerPrimaryButtonStyle: ButtonStyle {
+    var prominent = false
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(.primary)
+            .foregroundStyle(labelColor)
+            .tint(labelColor)
             .frame(maxWidth: .infinity)
-            .frame(minHeight: 58)
+            .frame(minHeight: 50)
             .background(
-                Color(.secondarySystemBackground).opacity(
-                    configuration.isPressed ? 0.72 : 0.96
-                ),
+                backgroundColor.opacity(0.96),
                 in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
                     .stroke(.primary.opacity(0.08), lineWidth: 0.5)
             }
-            .opacity(isEnabled ? 1 : 0.45)
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+
+    private var backgroundColor: Color {
+        if !isEnabled, prominent {
+            return colorScheme == .dark
+                ? Color(red: 149 / 255, green: 149 / 255, blue: 158 / 255)
+                : Color(red: 232 / 255, green: 232 / 255, blue: 238 / 255)
+        }
+
+        if prominent {
+            return colorScheme == .dark
+                ? Color(red: 245 / 255, green: 245 / 255, blue: 247 / 255)
+                : Color(.systemGray5)
+        }
+
+        return Color(.secondarySystemBackground)
+    }
+
+    private var labelColor: Color {
+        guard isEnabled else {
+            if prominent {
+                return colorScheme == .dark
+                    ? Color(red: 72 / 255, green: 72 / 255, blue: 79 / 255)
+                    : Color(red: 133 / 255, green: 133 / 255, blue: 140 / 255)
+            }
+
+            return .secondary
+        }
+
+        return prominent ? .black : .primary
     }
 }
 

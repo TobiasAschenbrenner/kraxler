@@ -9,7 +9,7 @@ struct DownloadedAreasScreen: View {
                 ContentUnavailableView(
                     "No downloads",
                     systemImage: "arrow.down.circle",
-                    description: Text("Downloaded climbing areas appear here.")
+                    description: nil
                 )
             } else {
                 List(offlineDownloadsStore.downloadedManifests) { manifest in

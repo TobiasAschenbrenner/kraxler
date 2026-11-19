@@ -38,7 +38,12 @@ extension AuthenticationClient {
         observeAccount: { observer in
             let handle = Auth.auth().addStateDidChangeListener { _, user in
                 let account = user.map {
-                    AuthenticatedAccount(id: $0.uid, email: $0.email)
+                    AuthenticatedAccount(
+                        id: $0.uid,
+                        email: $0.email,
+                        displayName: $0.displayName,
+                        photoURL: $0.photoURL
+                    )
                 }
 
                 Task { @MainActor in

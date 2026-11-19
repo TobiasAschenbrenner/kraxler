@@ -6,14 +6,6 @@ struct AuthenticationScreen: View {
         case signIn = "Sign In"
         case createAccount = "Create Account"
 
-        var prompt: String {
-            switch self {
-            case .signIn:
-                "Welcome back"
-            case .createAccount:
-                "Create your account"
-            }
-        }
     }
 
     @Environment(AuthSession.self) private var authSession
@@ -42,7 +34,7 @@ struct AuthenticationScreen: View {
     private var landingContent: some View {
         ScrollView {
             VStack(spacing: 0) {
-                Spacer(minLength: 126)
+                Spacer(minLength: 116)
 
                 brand
 
@@ -52,7 +44,7 @@ struct AuthenticationScreen: View {
                     NavigationLink(value: Mode.createAccount) {
                         Text("Create Account")
                     }
-                    .buttonStyle(KraxlerPrimaryButtonStyle())
+                    .buttonStyle(KraxlerPrimaryButtonStyle(prominent: true))
                     .accessibilityIdentifier("authentication-create-account")
 
                     NavigationLink(value: Mode.signIn) {
@@ -77,6 +69,7 @@ struct AuthenticationScreen: View {
                     SocialAuthenticationButton(
                         title: "Continue with Google",
                         systemImage: "g.circle.fill",
+                        assetName: "GoogleMark",
                         isLoading: isSigningInWithGoogle,
                         isDisabled: isSigningInWithApple || isSigningInWithGoogle
                     ) {
@@ -178,6 +171,7 @@ private struct CredentialsScreen: View {
     @State private var password = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    @State private var isPasswordVisible = false
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -190,15 +184,14 @@ private struct CredentialsScreen: View {
             KraxlerScreenBackground(showsTopography: true)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 30) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(mode.prompt)
+                VStack(alignment: .leading, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 24) {
+                        if mode == .createAccount {
+                            KraxlerBrandMark(size: 62)
+                        }
+                        Text(mode.rawValue)
                             .font(.largeTitle.bold())
-
-                        Text(mode == .signIn
-                            ? "Sign in to continue to Kraxler."
-                            : "Save climbs, track ticks, and take areas offline.")
-                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("authentication-form-title")
                     }
 
                     VStack(spacing: 14) {
@@ -215,20 +208,34 @@ private struct CredentialsScreen: View {
                         .accessibilityIdentifier("authentication-email")
 
                         authenticationField(systemImage: "lock") {
-                            SecureField("Password", text: $password)
+                            Group {
+                                if isPasswordVisible {
+                                    TextField("Password", text: $password)
+                                } else {
+                                    SecureField("Password", text: $password)
+                                }
+                            }
                                 .focused($focusedField, equals: .password)
                                 .submitLabel(.go)
                                 .onSubmit {
                                     guard canSubmit, !isSubmitting else { return }
                                     Task { await submit() }
                                 }
+                            Button {
+                                isPasswordVisible.toggle()
+                            } label: {
+                                Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
+                            }
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel(isPasswordVisible ? "Hide password" : "Show password")
+                            .frame(minWidth: 28, minHeight: 44)
                         }
                         .textContentType(mode == .signIn ? .password : .newPassword)
                         .accessibilityIdentifier("authentication-password")
                     }
 
                     if mode == .createAccount {
-                        Label("Use at least six characters", systemImage: "checkmark.shield")
+                        Label("Use at least \(AccountPasswordPolicy.minimumLength) characters", systemImage: "checkmark.shield")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -247,23 +254,23 @@ private struct CredentialsScreen: View {
                             if isSubmitting {
                                 ProgressView()
                             } else {
-                                Text(mode.rawValue)
+                                Text("Continue")
                             }
                         }
                         .frame(height: 22)
                     }
-                    .buttonStyle(KraxlerPrimaryButtonStyle())
+                    .buttonStyle(KraxlerPrimaryButtonStyle(prominent: true))
                     .disabled(!canSubmit || isSubmitting)
                     .accessibilityIdentifier("authentication-submit")
                 }
                 .frame(maxWidth: 520)
                 .padding(.horizontal, 24)
-                .padding(.top, 36)
+                .padding(.top, 58)
                 .frame(maxWidth: .infinity)
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .navigationTitle(mode.rawValue)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
     }
@@ -292,7 +299,9 @@ private struct CredentialsScreen: View {
     }
 
     private var canSubmit: Bool {
-        email.contains("@") && password.count >= 6
+        email.contains("@") && (mode == .createAccount
+            ? AccountPasswordPolicy.accepts(password)
+            : !password.isEmpty)
     }
 
     private func submit() async {
@@ -317,6 +326,7 @@ private struct CredentialsScreen: View {
 private struct SocialAuthenticationButton: View {
     let title: String
     let systemImage: String
+    var assetName: String? = nil
     let isLoading: Bool
     let isDisabled: Bool
     let action: () -> Void
@@ -327,24 +337,21 @@ private struct SocialAuthenticationButton: View {
                 if isLoading {
                     ProgressView()
                 } else {
-                    Image(systemName: systemImage)
+                    if let assetName {
+                        Image(assetName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                    } else {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 22))
+                    }
                 }
 
                 Text(title)
             }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: 54)
         }
-        .buttonStyle(.plain)
-        .background(
-            Color(.secondarySystemBackground).opacity(0.88),
-            in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
-                .stroke(.primary.opacity(0.08), lineWidth: 0.5)
-        }
+        .buttonStyle(KraxlerPrimaryButtonStyle())
         .disabled(isDisabled)
     }
 }

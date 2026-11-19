@@ -71,7 +71,7 @@ struct AreaDetailSheet: View {
                 ContentUnavailableView(
                     "No routes yet",
                     systemImage: "figure.climbing",
-                    description: Text("This area does not have any routes in Kraxler yet.")
+                    description: nil
                 )
             }
 
@@ -79,7 +79,7 @@ struct AreaDetailSheet: View {
             List {
                 Section {
                     areaHeader(routes: routes)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 14, trailing: 20))
+                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 14, trailing: 0))
                         .listRowBackground(Color.clear)
                 }
 
@@ -100,8 +100,6 @@ struct AreaDetailSheet: View {
                 if routes.isEmpty {
                     ContentUnavailableView {
                         Label("No matching routes", systemImage: "line.3.horizontal.decrease.circle")
-                    } description: {
-                        Text("Try changing or clearing the active filters.")
                     } actions: {
                         Button("Clear filters") { filters = RouteFilters() }
                     }
@@ -123,9 +121,10 @@ struct AreaDetailSheet: View {
                             .accessibilityIdentifier("route-link-\(route.id)")
                         }
                     }
+                    .listRowBackground(KraxlerDesign.sectionBackground)
                 }
             }
-            .listStyle(.plain)
+            .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
 
         case .failed(let message):
@@ -149,9 +148,6 @@ struct AreaDetailSheet: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(area.name)
                         .font(.largeTitle.bold())
-                    Text(area.type.displayName)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 offlineDownloadControl

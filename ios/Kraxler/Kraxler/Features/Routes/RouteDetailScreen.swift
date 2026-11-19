@@ -259,7 +259,7 @@ private struct RouteDetailContent<Actions: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 28) {
                 mapHero
                 routeHeader
                 facts
@@ -276,8 +276,6 @@ private struct RouteDetailContent<Actions: View>: View {
                             .accessibilityIdentifier("route-detail-description")
                     }
                 }
-
-                coordinate
             }
             .padding(.horizontal, KraxlerDesign.pagePadding)
             .padding(.bottom, 32)
@@ -372,33 +370,23 @@ private struct RouteDetailContent<Actions: View>: View {
 
     private var routeHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(route.name)
-                        .font(.largeTitle.bold())
-                        .accessibilityIdentifier("route-detail-name")
+            Text(route.name)
+                .font(.largeTitle.bold())
+                .accessibilityIdentifier("route-detail-name")
 
-                    HStack(spacing: 8) {
-                        Text(route.grade.value)
-                            .font(.title3.bold().monospacedDigit())
-                            .foregroundStyle(KraxlerDesign.accent)
-                            .accessibilityIdentifier("route-detail-grade")
+            HStack(spacing: 8) {
+                Text(route.grade.value)
+                    .font(.title3.bold().monospacedDigit())
+                    .foregroundStyle(KraxlerDesign.accent)
+                    .accessibilityIdentifier("route-detail-grade")
 
-                        Text(route.discipline.displayName)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("route-detail-discipline")
-                    }
-                }
-
-                Spacer(minLength: 8)
-                actions
-            }
-
-            if !route.styles.isEmpty {
-                Text(route.styles.map(\.displayName).joined(separator: " · "))
-                    .font(.subheadline)
+                Text(route.discipline.displayName)
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("route-detail-discipline")
+
+                Spacer(minLength: 12)
+                actions
             }
         }
     }
@@ -455,24 +443,6 @@ private struct RouteDetailContent<Actions: View>: View {
         .accessibilityIdentifier("route-detail-styles")
     }
 
-    private var coordinate: some View {
-        Label(coordinateText, systemImage: "location")
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
-            .accessibilityIdentifier("route-detail-location")
-    }
-
-    private var coordinateText: String {
-        let coordinate = route.location.coordinate
-        let latitude = coordinate.latitude.formatted(
-            .number.precision(.fractionLength(5))
-        )
-        let longitude = coordinate.longitude.formatted(
-            .number.precision(.fractionLength(5))
-        )
-        return "\(latitude), \(longitude)"
-    }
-
     private func fact(
         title: String,
         value: String,
@@ -483,12 +453,13 @@ private struct RouteDetailContent<Actions: View>: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(KraxlerDesign.accent)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.6)
 
             Text(title)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 8)
         .frame(maxWidth: .infinity)
     }
 

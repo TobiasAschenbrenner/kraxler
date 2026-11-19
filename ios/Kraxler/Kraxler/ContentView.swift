@@ -100,7 +100,8 @@ struct ContentView: View {
             MainTabView(
                 personalRoutesStore: personalRoutesStore,
                 climbingRepository: climbingRepository,
-                offlineDownloadsStore: offlineDownloadsStore
+                offlineDownloadsStore: offlineDownloadsStore,
+                apiClient: apiClient
             )
             .accessibilityIdentifier("authenticated-app")
         }

@@ -6,6 +6,8 @@ import UIKit
 struct AuthenticatedAccount: Equatable, Sendable {
     let id: String
     let email: String?
+    var displayName: String? = nil
+    var photoURL: URL? = nil
 }
 
 enum AuthSessionError: Error {
@@ -85,6 +87,10 @@ final class AuthSession {
             throw AuthSessionError.notConfigured
         }
 
+        guard AccountPasswordPolicy.accepts(password) else {
+            throw AccountCreationError.passwordTooShort
+        }
+
         try await client.createAccount(email, password)
     }
 
@@ -102,5 +108,13 @@ final class AuthSession {
         }
 
         return try await client.idToken()
+    }
+}
+
+enum AccountCreationError: LocalizedError {
+    case passwordTooShort
+
+    var errorDescription: String? {
+        "Use at least \(AccountPasswordPolicy.minimumLength) characters."
     }
 }

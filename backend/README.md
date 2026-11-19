@@ -28,6 +28,5 @@ The service listens on port `3000` by default.
 ## Service status
 
 - `GET /health` confirms that the API process is running.
-- `GET /ready` confirms that the API can serve requests. Database readiness
-  will be included here once MongoDB is connected.
+- `GET /ready` confirms that the API can serve requests and reach MongoDB.
 

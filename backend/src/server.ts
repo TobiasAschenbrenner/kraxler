@@ -8,8 +8,6 @@ import {
 } from "./database/mongo.js";
 
 const startServer = async (): Promise<void> => {
-  await connectToDatabase(environment.mongoDbUri);
-
   const server = app.listen(environment.port, () => {
     console.info(`Kraxler API listening on port ${environment.port}.`);
   });
@@ -39,6 +37,14 @@ const startServer = async (): Promise<void> => {
 
   process.on("SIGINT", shutDown);
   process.on("SIGTERM", shutDown);
+
+  try {
+    await connectToDatabase(environment.mongoDbUri);
+  } catch (error) {
+    server.close();
+    await disconnectFromDatabase();
+    throw error;
+  }
 };
 
 startServer().catch((error: unknown) => {

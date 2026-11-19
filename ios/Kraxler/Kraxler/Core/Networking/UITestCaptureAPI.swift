@@ -6,7 +6,11 @@ extension APIClient {
     static func uiTestCapture(authTokenProvider: @escaping AuthTokenProvider) -> APIClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [CaptureURLProtocol.self]
-        return APIClient(session: URLSession(configuration: configuration), authTokenProvider: authTokenProvider)
+        return APIClient(
+            baseURL: URL(string: "http://localhost:3000")!,
+            session: URLSession(configuration: configuration),
+            authTokenProvider: authTokenProvider
+        )
     }
 }
 

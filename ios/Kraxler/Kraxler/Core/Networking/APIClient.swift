@@ -66,7 +66,7 @@ nonisolated struct APIClient: Sendable {
     private let authTokenProvider: AuthTokenProvider
 
     init(
-        baseURL: URL = URL(string: "http://localhost:3000")!,
+        baseURL: URL = URL(string: "https://sound-hotpink-sheep-71.hostingersite.com")!,
         session: URLSession = .shared,
         decoder: JSONDecoder = JSONDecoder(),
         authTokenProvider: @escaping AuthTokenProvider = { nil }

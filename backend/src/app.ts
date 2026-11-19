@@ -1,6 +1,5 @@
 import express from "express";
 import helmet from "helmet";
-import { pinoHttp } from "pino-http";
 
 import {
   type AuthTokenVerifier,
@@ -8,6 +7,7 @@ import {
 } from "./auth/auth-token.js";
 import { environment } from "./config/environment.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
+import { createRequestLogger } from "./middleware/request-logger.js";
 import { areaRouter } from "./modules/areas/area.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { createPersonalRouteRouter } from "./modules/personal-routes/personal-route.routes.js";
@@ -30,7 +30,7 @@ export const createApp = (
   expressApp.use(helmet());
 
   if (environment.nodeEnv !== "test") {
-    expressApp.use(pinoHttp());
+    expressApp.use(createRequestLogger());
   }
 
   expressApp.use(express.json({ limit: "100kb" }));

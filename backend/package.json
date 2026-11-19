@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
+    "build:hosting": "npm ci --include=dev && npm run build && npm prune --omit=dev",
     "start": "node dist/server.js",
     "seed": "tsx src/database/seed.ts",
     "lint": "eslint .",

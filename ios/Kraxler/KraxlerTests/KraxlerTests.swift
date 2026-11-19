@@ -40,6 +40,30 @@ struct KraxlerTests {
     }
 
     @Test
+    func choosesLocationActionsForEveryAuthorizationState() {
+        #expect(
+            LocationAuthorizationController.accessAction(for: .notDetermined)
+                == .requestAuthorization
+        )
+        #expect(
+            LocationAuthorizationController.accessAction(for: .authorizedWhenInUse)
+                == .requestLocation
+        )
+        #expect(
+            LocationAuthorizationController.accessAction(for: .authorizedAlways)
+                == .requestLocation
+        )
+        #expect(
+            LocationAuthorizationController.accessAction(for: .denied)
+                == .openSettings
+        )
+        #expect(
+            LocationAuthorizationController.accessAction(for: .restricted)
+                == .openSettings
+        )
+    }
+
+    @Test
     func signsOutAndPublishesTheSignedOutState() throws {
         let authentication = AuthenticationClientSpy(
             account: AuthenticatedAccount(

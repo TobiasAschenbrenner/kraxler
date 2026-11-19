@@ -1,6 +1,12 @@
 import CoreLocation
 import Observation
 
+enum LocationAccessAction: Equatable {
+    case requestAuthorization
+    case requestLocation
+    case openSettings
+}
+
 @MainActor
 @Observable
 final class LocationAuthorizationController: NSObject, CLLocationManagerDelegate {
@@ -24,6 +30,27 @@ final class LocationAuthorizationController: NSObject, CLLocationManagerDelegate
     var isAuthorized: Bool {
         authorizationStatus == .authorizedAlways
             || authorizationStatus == .authorizedWhenInUse
+    }
+
+    var accessAction: LocationAccessAction {
+        Self.accessAction(for: authorizationStatus)
+    }
+
+    static func accessAction(for status: CLAuthorizationStatus) -> LocationAccessAction {
+        switch status {
+        case .notDetermined:
+            .requestAuthorization
+        case .authorizedAlways, .authorizedWhenInUse:
+            .requestLocation
+        case .denied, .restricted:
+            .openSettings
+        @unknown default:
+            .openSettings
+        }
+    }
+
+    func refreshAuthorizationStatus() {
+        authorizationStatus = locationManager.authorizationStatus
     }
 
     func requestAuthorization() {

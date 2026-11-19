@@ -1,6 +1,7 @@
 import CoreLocation
 import MapboxMaps
 import SwiftUI
+import UIKit
 
 struct MapScreen: View {
     private enum SheetDestination: Identifiable {
@@ -34,6 +35,8 @@ struct MapScreen: View {
     private let loadsRemoteAreas: Bool
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @State private var model: MapScreenModel
     @State private var locationAuthorization = LocationAuthorizationController()
     @State private var viewport: Viewport
@@ -42,6 +45,8 @@ struct MapScreen: View {
     @State private var pendingAreaFromSearch: ClimbingArea?
     @State private var selectedAreaID: String?
     @State private var isLocationFocusPending = false
+    @State private var hasRequestedInitialLocation = false
+    @State private var showsLocationSettingsAlert = false
     @State private var mapScale: CompactMapScale
 
     init(
@@ -125,6 +130,9 @@ struct MapScreen: View {
             }
             await model.loadAreas(in: requestedBounds)
         }
+        .task {
+            requestInitialUserLocation()
+        }
         .onChange(of: locationAuthorization.isAuthorized) { _, isAuthorized in
             guard isAuthorized else {
                 return
@@ -141,6 +149,21 @@ struct MapScreen: View {
                 focusMap(on: location)
             }
             isLocationFocusPending = false
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else {
+                return
+            }
+
+            locationAuthorization.refreshAuthorizationStatus()
+        }
+        .alert("Location Off", isPresented: $showsLocationSettingsAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Settings") {
+                openLocationSettings()
+            }
+        } message: {
+            Text("Allow location access in Settings.")
         }
         .sheet(item: $sheetDestination, onDismiss: {
             selectedAreaID = nil
@@ -202,30 +225,16 @@ struct MapScreen: View {
 
     @ViewBuilder
     private var locationControl: some View {
-        if locationAuthorization.isAuthorized {
-            Button {
-                focusOnUserLocation()
-            } label: {
-                Image(systemName: "location.fill")
-            }
-            .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
-            .accessibilityLabel("Show my location")
-            .accessibilityIdentifier("map-user-location-button")
-        } else {
-            Button {
-                locationAuthorization.requestAuthorization()
-            } label: {
-                Image(systemName: locationAuthorization.authorizationStatus == .notDetermined
-                    ? "location"
-                    : "location.slash")
-            }
-            .disabled(locationAuthorization.authorizationStatus != .notDetermined)
-            .accessibilityLabel(locationAuthorization.authorizationStatus == .notDetermined
-                ? "Allow location access"
-                : "Location access unavailable")
-            .accessibilityIdentifier("map-location-permission-button")
-            .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
+        Button {
+            handleLocationControlTapped()
+        } label: {
+            Image(systemName: locationControlIcon)
         }
+        .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
+        .accessibilityLabel(locationControlAccessibilityLabel)
+        .accessibilityIdentifier(locationAuthorization.isAuthorized
+            ? "map-user-location-button"
+            : "map-location-permission-button")
     }
 
     private var mapHeader: some View {
@@ -341,6 +350,59 @@ struct MapScreen: View {
         }
 
         locationAuthorization.requestCurrentLocation()
+    }
+
+    private func requestInitialUserLocation() {
+        guard !hasRequestedInitialLocation else {
+            return
+        }
+
+        hasRequestedInitialLocation = true
+
+        guard locationAuthorization.accessAction != .openSettings else {
+            return
+        }
+
+        focusOnUserLocation()
+    }
+
+    private func handleLocationControlTapped() {
+        switch locationAuthorization.accessAction {
+        case .requestAuthorization, .requestLocation:
+            focusOnUserLocation()
+        case .openSettings:
+            showsLocationSettingsAlert = true
+        }
+    }
+
+    private var locationControlIcon: String {
+        switch locationAuthorization.accessAction {
+        case .requestAuthorization:
+            "location"
+        case .requestLocation:
+            "location.fill"
+        case .openSettings:
+            "location.slash"
+        }
+    }
+
+    private var locationControlAccessibilityLabel: String {
+        switch locationAuthorization.accessAction {
+        case .requestAuthorization:
+            "Allow location access"
+        case .requestLocation:
+            "Show my location"
+        case .openSettings:
+            "Open location settings"
+        }
+    }
+
+    private func openLocationSettings() {
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else {
+            return
+        }
+
+        openURL(settingsURL)
     }
 
     private func focusMap(on location: CLLocation) {

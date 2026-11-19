@@ -1,11 +1,17 @@
+import AuthenticationServices
+import CryptoKit
 import FirebaseAuth
 import FirebaseCore
 import Foundation
 import GoogleSignIn
+import Security
 import UIKit
 
 enum AuthenticationClientError: Error, Equatable {
     case cancelled
+    case appleCredentialMissing
+    case appleIDTokenInvalid
+    case appleIDTokenMissing
     case googleClientIDMissing
     case googleIDTokenMissing
 }
@@ -17,6 +23,7 @@ struct AuthenticationClient {
     let isConfigured: () -> Bool
     let observeAccount: (@escaping AccountObserver) -> () -> Void
     let signIn: (_ email: String, _ password: String) async throws -> Void
+    let signInWithApple: (_ presentationAnchor: ASPresentationAnchor) async throws -> Void
     let signInWithGoogle: (_ presentingViewController: UIViewController) async throws -> Void
     let createAccount: (_ email: String, _ password: String) async throws -> Void
     let signOut: () throws -> Void
@@ -45,6 +52,29 @@ extension AuthenticationClient {
         },
         signIn: { email, password in
             try await Auth.auth().signIn(withEmail: email, password: password)
+        },
+        signInWithApple: { presentationAnchor in
+            let nonce = try AppleSignInNonce.make()
+            let coordinator = AppleSignInCoordinator(
+                presentationAnchor: presentationAnchor,
+                nonce: nonce
+            )
+            let appleCredential = try await coordinator.authorize()
+
+            guard let identityToken = appleCredential.identityToken else {
+                throw AuthenticationClientError.appleIDTokenMissing
+            }
+
+            guard let idToken = String(data: identityToken, encoding: .utf8) else {
+                throw AuthenticationClientError.appleIDTokenInvalid
+            }
+
+            let credential = OAuthProvider.appleCredential(
+                withIDToken: idToken,
+                rawNonce: nonce,
+                fullName: appleCredential.fullName
+            )
+            try await Auth.auth().signIn(with: credential)
         },
         signInWithGoogle: { presentingViewController in
             guard let clientID = FirebaseApp.app()?.options.clientID else {
@@ -121,6 +151,14 @@ private final class UITestAuthenticationState {
                     AuthenticatedAccount(id: "ui-test-account", email: email)
                 )
             },
+            signInWithApple: { [self] _ in
+                updateAccount(
+                    AuthenticatedAccount(
+                        id: "ui-test-apple-account",
+                        email: "climber@icloud.com"
+                    )
+                )
+            },
             signInWithGoogle: { [self] _ in
                 updateAccount(
                     AuthenticatedAccount(
@@ -149,3 +187,114 @@ private final class UITestAuthenticationState {
     }
 }
 #endif
+
+private enum AppleSignInNonce {
+    static func make(length: Int = 32) throws -> String {
+        precondition(length > 0)
+
+        let characters = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        var remainingLength = length
+
+        while remainingLength > 0 {
+            var randomBytes = [UInt8](repeating: 0, count: 16)
+            let status = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+
+            guard status == errSecSuccess else {
+                throw NSError(
+                    domain: NSOSStatusErrorDomain,
+                    code: Int(status)
+                )
+            }
+
+            for randomByte in randomBytes where remainingLength > 0 {
+                if randomByte < characters.count {
+                    result.append(characters[Int(randomByte)])
+                    remainingLength -= 1
+                }
+            }
+        }
+
+        return result
+    }
+
+    static func sha256(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+}
+
+@MainActor
+private final class AppleSignInCoordinator: NSObject,
+    ASAuthorizationControllerDelegate,
+    ASAuthorizationControllerPresentationContextProviding {
+    private let presentationAnchor: ASPresentationAnchor
+    private let nonce: String
+    private var continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>?
+    private var authorizationController: ASAuthorizationController?
+
+    init(presentationAnchor: ASPresentationAnchor, nonce: String) {
+        self.presentationAnchor = presentationAnchor
+        self.nonce = nonce
+    }
+
+    func authorize() async throws -> ASAuthorizationAppleIDCredential {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+
+            let request = ASAuthorizationAppleIDProvider().createRequest()
+            request.requestedScopes = [.fullName, .email]
+            request.nonce = AppleSignInNonce.sha256(nonce)
+
+            let controller = ASAuthorizationController(authorizationRequests: [request])
+            authorizationController = controller
+            controller.delegate = self
+            controller.presentationContextProvider = self
+            controller.performRequests()
+        }
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        presentationAnchor
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            finish(throwing: AuthenticationClientError.appleCredentialMissing)
+            return
+        }
+
+        finish(returning: credential)
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithError error: Error
+    ) {
+        if let authorizationError = error as? ASAuthorizationError,
+           authorizationError.code == .canceled {
+            finish(throwing: AuthenticationClientError.cancelled)
+        } else {
+            finish(throwing: error)
+        }
+    }
+
+    private func finish(returning credential: ASAuthorizationAppleIDCredential) {
+        continuation?.resume(returning: credential)
+        clearRequest()
+    }
+
+    private func finish(throwing error: Error) {
+        continuation?.resume(throwing: error)
+        clearRequest()
+    }
+
+    private func clearRequest() {
+        continuation = nil
+        authorizationController = nil
+    }
+}

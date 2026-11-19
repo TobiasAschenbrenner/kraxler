@@ -98,6 +98,19 @@ struct KraxlerTests {
     }
 
     @Test
+    func signsInWithAppleAndPublishesTheAccount() async throws {
+        let authentication = AuthenticationClientSpy(account: nil)
+        let session = AuthSession(client: authentication.client)
+        session.start()
+
+        try await session.signInWithApple(presentationAnchor: UIWindow())
+
+        #expect(authentication.appleSignInCallCount == 1)
+        #expect(session.account?.id == "apple-account")
+        #expect(session.account?.email == "climber@icloud.com")
+    }
+
+    @Test
     func derivesBoundsFromVisibleMapCoordinates() {
         let bounds = MapBounds(
             southwest: CLLocationCoordinate2D(latitude: 48.25, longitude: 2.5),
@@ -941,6 +954,7 @@ private final class AuthenticationClientSpy {
     private var account: AuthenticatedAccount?
     private var observer: AuthenticationClient.AccountObserver?
     private(set) var signOutCallCount = 0
+    private(set) var appleSignInCallCount = 0
     private(set) var googleSignInCallCount = 0
 
     init(account: AuthenticatedAccount?) {
@@ -960,6 +974,15 @@ private final class AuthenticationClientSpy {
             signIn: { [self] email, _ in
                 updateAccount(
                     AuthenticatedAccount(id: "signed-in-account", email: email)
+                )
+            },
+            signInWithApple: { [self] _ in
+                appleSignInCallCount += 1
+                updateAccount(
+                    AuthenticatedAccount(
+                        id: "apple-account",
+                        email: "climber@icloud.com"
+                    )
                 )
             },
             signInWithGoogle: { [self] _ in

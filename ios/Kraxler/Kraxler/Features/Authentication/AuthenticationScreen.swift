@@ -18,8 +18,8 @@ struct AuthenticationScreen: View {
 
     @Environment(AuthSession.self) private var authSession
     @State private var errorMessage: String?
+    @State private var isSigningInWithApple = false
     @State private var isSigningInWithGoogle = false
-    @State private var showsApplePending = false
 
     var body: some View {
         ZStack {
@@ -67,13 +67,10 @@ struct AuthenticationScreen: View {
                     SocialAuthenticationButton(
                         title: "Continue with Apple",
                         systemImage: "apple.logo",
-                        isLoading: false,
-                        isDisabled: isSigningInWithGoogle
+                        isLoading: isSigningInWithApple,
+                        isDisabled: isSigningInWithApple || isSigningInWithGoogle
                     ) {
-                        showsApplePending = true
-                    }
-                    .alert("Not available yet", isPresented: $showsApplePending) {
-                        Button("OK", role: .cancel) {}
+                        Task { await signInWithApple() }
                     }
                     .accessibilityIdentifier("authentication-apple")
 
@@ -81,7 +78,7 @@ struct AuthenticationScreen: View {
                         title: "Continue with Google",
                         systemImage: "g.circle.fill",
                         isLoading: isSigningInWithGoogle,
-                        isDisabled: isSigningInWithGoogle
+                        isDisabled: isSigningInWithApple || isSigningInWithGoogle
                     ) {
                         Task { await signInWithGoogle() }
                     }
@@ -129,6 +126,25 @@ struct AuthenticationScreen: View {
             Rectangle()
                 .fill(.secondary.opacity(0.42))
                 .frame(height: 0.5)
+        }
+    }
+
+    private func signInWithApple() async {
+        guard let presentationAnchor = UIApplication.shared.kraxlerKeyWindow else {
+            errorMessage = "Couldn’t open Apple sign-in."
+            return
+        }
+
+        isSigningInWithApple = true
+        errorMessage = nil
+        defer { isSigningInWithApple = false }
+
+        do {
+            try await authSession.signInWithApple(presentationAnchor: presentationAnchor)
+        } catch AuthenticationClientError.cancelled {
+            return
+        } catch {
+            errorMessage = "Couldn’t sign in with Apple."
         }
     }
 
@@ -334,12 +350,15 @@ private struct SocialAuthenticationButton: View {
 }
 
 private extension UIApplication {
-    var kraxlerTopViewController: UIViewController? {
-        let rootViewController = connectedScenes
+    var kraxlerKeyWindow: UIWindow? {
+        connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows)
-            .first(where: \.isKeyWindow)?
-            .rootViewController
+            .first(where: \.isKeyWindow)
+    }
+
+    var kraxlerTopViewController: UIViewController? {
+        let rootViewController = kraxlerKeyWindow?.rootViewController
 
         return topViewController(from: rootViewController)
     }

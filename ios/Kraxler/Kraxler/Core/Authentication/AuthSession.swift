@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import Observation
 import UIKit
@@ -69,6 +70,14 @@ final class AuthSession {
         }
 
         try await client.signInWithGoogle(presentingViewController)
+    }
+
+    func signInWithApple(presentationAnchor: ASPresentationAnchor) async throws {
+        guard client.isConfigured() else {
+            throw AuthSessionError.notConfigured
+        }
+
+        try await client.signInWithApple(presentationAnchor)
     }
 
     func createAccount(email: String, password: String) async throws {

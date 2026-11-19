@@ -13,12 +13,55 @@ struct MapSearchSheet: View {
     let onSelectArea: (ClimbingArea) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var query = ""
     @State private var searchState: SearchState = .idle
+    @State private var isExpanded = false
+    @GestureState private var dragTranslation: CGFloat = 0
+    @FocusState private var isSearchFocused: Bool
 
     var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.16)
+                    .ignoresSafeArea()
+                    .onTapGesture { dismiss() }
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 0) {
+                    dragHandle
+                    navigationContent
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: panelHeight(in: geometry.size.height))
+                .background {
+                    UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32)
+                        .fill(.clear)
+                        .glassEffect(.regular, in: UnevenRoundedRectangle(
+                            topLeadingRadius: 32, topTrailingRadius: 32
+                        ))
+                        .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("map-search-panel")
+                .animation(reduceMotion ? nil : .spring(duration: 0.55, bounce: 0), value: isExpanded)
+            }
+        }
+        .presentationBackground(.clear)
+        .tint(KraxlerDesign.accent)
+        .accessibilityAction(.escape) { dismiss() }
+        .onChange(of: isSearchFocused) { _, isFocused in
+            if isFocused { isExpanded = true }
+        }
+        .task(id: query) {
+            await search()
+        }
+    }
+
+    private var navigationContent: some View {
         NavigationStack {
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle("Search")
                 .navigationBarTitleDisplayMode(.inline)
                 .searchable(
@@ -26,6 +69,9 @@ struct MapSearchSheet: View {
                     placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Area or route name"
                 )
+                .searchFocused($isSearchFocused)
+                .onSubmit(of: .search) { isSearchFocused = false }
+                .toolbarBackground(.hidden, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Close", systemImage: "xmark") {
@@ -34,20 +80,64 @@ struct MapSearchSheet: View {
                     }
                 }
         }
-        .tint(KraxlerDesign.accent)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .task(id: query) {
-            await search()
-        }
+        .containerBackground(.clear, for: .navigation)
+    }
+
+    private var dragHandle: some View {
+        Capsule()
+            .fill(.secondary.opacity(0.45))
+            .frame(width: 44, height: 5)
+            .frame(maxWidth: .infinity)
+            .frame(height: 24)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture()
+                    .updating($dragTranslation) { value, translation, _ in
+                        translation = value.translation.height
+                    }
+                    .onEnded { value in
+                        let travel = value.predictedEndTranslation.height
+                        if travel < -60 {
+                            isExpanded = true
+                        } else if travel > 100 {
+                            if isExpanded {
+                                isSearchFocused = false
+                                isExpanded = false
+                            } else {
+                                dismiss()
+                            }
+                        }
+                    }
+            )
+            .accessibilityLabel("Sheet Grabber")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment:
+                    isExpanded = true
+                case .decrement:
+                    if isExpanded {
+                        isSearchFocused = false
+                        isExpanded = false
+                    } else {
+                        dismiss()
+                    }
+                @unknown default:
+                    break
+                }
+            }
+    }
+
+    private func panelHeight(in availableHeight: CGFloat) -> CGFloat {
+        let restingHeight = isExpanded ? availableHeight : availableHeight * 0.56
+        return min(availableHeight, max(200, restingHeight - dragTranslation))
     }
 
     @ViewBuilder
     private var content: some View {
         switch searchState {
         case .idle:
-            Color(.systemBackground)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Color.clear
 
         case .loading:
             ProgressView("Searching…")
@@ -78,7 +168,7 @@ struct MapSearchSheet: View {
                             .accessibilityIdentifier("search-area-\(area.id)")
                         }
                     }
-                    .listRowBackground(KraxlerDesign.sectionBackground)
+                    .listRowBackground(Color.primary.opacity(0.05))
                 }
 
                 if !results.routes.isEmpty {
@@ -97,12 +187,11 @@ struct MapSearchSheet: View {
                             .accessibilityIdentifier("search-route-\(route.id)")
                         }
                     }
-                    .listRowBackground(KraxlerDesign.sectionBackground)
+                    .listRowBackground(Color.primary.opacity(0.05))
                 }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .background(KraxlerScreenBackground())
 
         case .failed(let message):
             ContentUnavailableView {

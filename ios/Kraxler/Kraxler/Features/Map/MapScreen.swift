@@ -6,14 +6,11 @@ import UIKit
 struct MapScreen: View {
     private enum SheetDestination: Identifiable {
         case area(ClimbingArea)
-        case search
 
         var id: String {
             switch self {
             case .area(let area):
                 "area-\(area.id)"
-            case .search:
-                "search"
             }
         }
     }
@@ -42,6 +39,7 @@ struct MapScreen: View {
     @State private var viewport: Viewport
     @State private var requestedBounds: MapBounds
     @State private var sheetDestination: SheetDestination?
+    @State private var isSearchPresented = false
     @State private var pendingAreaFromSearch: ClimbingArea?
     @State private var selectedAreaID: String?
     @State private var isLocationFocusPending = false
@@ -177,15 +175,17 @@ struct MapScreen: View {
                     personalRoutesStore: personalRoutesStore,
                     offlineDownloadsStore: offlineDownloadsStore
                 )
-            case .search:
-                MapSearchSheet(
-                    climbingRepository: climbingRepository,
-                    personalRoutesStore: personalRoutesStore
-                ) { area in
-                    focusMap(on: area)
-                    pendingAreaFromSearch = area
-                    sheetDestination = nil
-                }
+            }
+        }
+        .fullScreenCover(isPresented: $isSearchPresented, onDismiss: {
+            presentPendingAreaFromSearch()
+        }) {
+            MapSearchSheet(
+                climbingRepository: climbingRepository,
+                personalRoutesStore: personalRoutesStore
+            ) { area in
+                focusMap(on: area)
+                pendingAreaFromSearch = area
             }
         }
     }
@@ -257,7 +257,7 @@ struct MapScreen: View {
             GlassEffectContainer(spacing: 12) {
                 VStack(spacing: 12) {
                     Button {
-                        sheetDestination = .search
+                        isSearchPresented = true
                     } label: {
                         Image(systemName: "magnifyingglass")
                     }

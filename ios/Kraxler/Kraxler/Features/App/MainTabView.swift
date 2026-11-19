@@ -11,6 +11,7 @@ struct MainTabView: View {
     let climbingRepository: ClimbingRepository
     let offlineDownloadsStore: OfflineDownloadsStore
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: AppTab = .map
 
     var body: some View {
@@ -39,6 +40,15 @@ struct MainTabView: View {
         .tint(KraxlerDesign.accent)
         .task {
             await offlineDownloadsStore.load()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else {
+                return
+            }
+
+            Task {
+                await offlineDownloadsStore.load()
+            }
         }
     }
 }

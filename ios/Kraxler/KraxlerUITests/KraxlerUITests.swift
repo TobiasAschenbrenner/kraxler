@@ -85,6 +85,7 @@ final class KraxlerUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Map"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.tabBars.buttons["Library"].exists)
         XCTAssertTrue(app.tabBars.buttons["Profile"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Map"].isSelected)
     }
 
     @MainActor

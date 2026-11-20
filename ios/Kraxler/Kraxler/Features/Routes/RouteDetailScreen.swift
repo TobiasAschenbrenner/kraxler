@@ -327,7 +327,7 @@ private struct RouteDetailContent<Actions: View>: View {
 
     private var mapStyle: MapStyle {
         .standard(
-            theme: .monochrome,
+            theme: .faded,
             lightPreset: colorScheme == .dark ? .night : .day,
             showPointOfInterestLabels: false,
             showTransitLabels: false,

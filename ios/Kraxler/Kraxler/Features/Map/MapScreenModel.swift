@@ -14,6 +14,7 @@ final class MapScreenModel {
 
     private let climbingRepository: ClimbingRepository
     private var lastLoadedBounds: MapBounds?
+    private var requestID = UUID()
 
     private(set) var areas: [ClimbingArea]
     private(set) var loadStatus: LoadStatus
@@ -81,33 +82,36 @@ final class MapScreenModel {
             return
         }
 
-        if areas.isEmpty {
-            loadStatus = .loading
-        }
+        let currentRequest = UUID()
+        requestID = currentRequest
+        if areas.isEmpty { loadStatus = .loading }
 
         do {
             let response = try await climbingRepository.areas(in: bounds)
-            guard !Task.isCancelled else {
+            guard !Task.isCancelled, requestID == currentRequest else {
                 return
             }
 
-            areas = response.value
+            if response.source == .offline {
+                // Keep already visible pins through brief outages, adding downloaded areas.
+                let downloadedIDs = Set(response.value.map(\.id))
+                areas = areas.filter { !downloadedIDs.contains($0.id) } + response.value
+            } else {
+                areas = response.value
+            }
             contentSource = response.source
             lastLoadedBounds = bounds
             loadStatus = .loaded
         } catch is CancellationError {
             return
         } catch {
-            loadStatus = .failed(Self.message(for: error))
+            guard !Task.isCancelled, requestID == currentRequest,
+                  (error as? URLError)?.code != .cancelled else { return }
+            loadStatus = areas.isEmpty ? .failed(Self.message(for: error)) : .loaded
         }
     }
 
     private static func message(for error: Error) -> String {
-        if let urlError = error as? URLError,
-           [.cannotConnectToHost, .cannotFindHost, .networkConnectionLost].contains(urlError.code) {
-            return "The Kraxler API is not reachable. Make sure the local backend is running."
-        }
-
         return "Climbing areas could not be loaded. Please try again."
     }
 }

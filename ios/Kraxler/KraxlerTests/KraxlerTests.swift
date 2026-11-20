@@ -46,6 +46,37 @@ struct KraxlerTests {
     }
 
     @Test
+    func loadsCloudinaryAvatarAndKeepsProviderAndDefaultFallbacks() throws {
+        let cloudinary = try #require(URL(string: "https://res.cloudinary.com/kraxler/image/upload/avatar.jpg"))
+        let provider = try #require(URL(string: "https://example.com/google-photo.jpg"))
+        let json = Data("""
+            {"displayName":"Tobias","avatarBase64":null,"avatarUrl":"\(cloudinary.absoluteString)","usesDefaultAvatar":false}
+            """.utf8)
+        var profile = try JSONDecoder().decode(UserProfile.self, from: json)
+        #expect(profile.avatarURL == cloudinary)
+        #expect(profile.photoURL(providerURL: provider) == cloudinary)
+        profile.usesDefaultAvatar = true
+        #expect(profile.photoURL(providerURL: provider) == nil)
+        profile.usesDefaultAvatar = false
+        profile.avatarURL = nil
+        #expect(profile.photoURL(providerURL: provider) == provider)
+
+        let oldResponse = Data("""
+            {"displayName":"Tobias","avatarBase64":null,"usesDefaultAvatar":false}
+            """.utf8)
+        #expect(try JSONDecoder().decode(UserProfile.self, from: oldResponse).avatarURL == nil)
+    }
+
+    @Test
+    func doesNotResubmitCloudinaryURLsAsProfileUpdateAuthority() throws {
+        let profile = UserProfile(displayName: "Tobias", avatarBase64: nil, usesDefaultAvatar: false,
+                                  avatarURL: URL(string: "https://res.cloudinary.com/kraxler/avatar.jpg"))
+        let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)) as? [String: Any])
+        #expect(json["avatarUrl"] == nil)
+        #expect(json["avatarBase64"] is NSNull)
+    }
+
+    @Test
     func sendsExplicitNullWhenRemovingTheProfilePhoto() async throws {
         let client = makeClient(authTokenProvider: { "test-token" }) { request in
             #expect(request.url?.path == "/api/v1/me/profile")

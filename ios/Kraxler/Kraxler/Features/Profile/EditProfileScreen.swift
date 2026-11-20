@@ -10,6 +10,7 @@ struct EditProfileScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var displayName: String
     @State private var avatarData: Data?
+    @State private var avatarURL: URL?
     @State private var usesDefaultAvatar: Bool
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var isSaving = false
@@ -27,6 +28,7 @@ struct EditProfileScreen: View {
         self.onSave = onSave
         _displayName = State(initialValue: profile?.displayName ?? account?.displayName ?? "")
         _avatarData = State(initialValue: profile?.avatarData)
+        _avatarURL = State(initialValue: profile?.avatarURL)
         _usesDefaultAvatar = State(initialValue: profile?.usesDefaultAvatar ?? false)
     }
 
@@ -37,7 +39,7 @@ struct EditProfileScreen: View {
                     VStack(spacing: 14) {
                         ProfileAvatar(
                             data: avatarData,
-                            photoURL: usesDefaultAvatar ? nil : account?.photoURL,
+                            photoURL: usesDefaultAvatar ? nil : avatarURL ?? account?.photoURL,
                             size: 88
                         )
                         PhotosPicker(selection: $selectedPhoto, matching: .images) {
@@ -46,9 +48,10 @@ struct EditProfileScreen: View {
                         .disabled(isSaving || isLoadingPhoto)
                         .accessibilityIdentifier("profile-change-photo")
 
-                        if avatarData != nil || (!usesDefaultAvatar && account?.photoURL != nil) {
+                        if avatarData != nil || (!usesDefaultAvatar && (avatarURL != nil || account?.photoURL != nil)) {
                             Button("Remove photo", role: .destructive) {
                                 avatarData = nil
+                                avatarURL = nil
                                 usesDefaultAvatar = true
                                 selectedPhoto = nil
                             }

@@ -60,7 +60,8 @@ struct ProfileScreen: View {
             HStack(spacing: 16) {
                 ProfileAvatar(
                     data: profile?.avatarData,
-                    photoURL: profile?.usesDefaultAvatar == true ? nil : authSession.account?.photoURL,
+                    photoURL: profile?.photoURL(providerURL: authSession.account?.photoURL)
+                        ?? (profile == nil ? authSession.account?.photoURL : nil),
                     size: 58
                 )
 

@@ -1,14 +1,6 @@
 import SwiftUI
 
 struct LibraryScreen: View {
-    private struct AreaRouteGroup: Identifiable {
-        let areaID: String
-        let areaName: String
-        let routes: [PersonalRoute]
-
-        var id: String { areaID }
-    }
-
     private enum LibrarySection: String, CaseIterable, Identifiable {
         case saved = "Saved"
         case ticked = "Ticked"
@@ -28,6 +20,7 @@ struct LibraryScreen: View {
                 .navigationTitle("Library")
         }
         .task(id: authSession.account?.id) {
+            personalRoutesStore.selectAccount(authSession.account?.id)
             guard authSession.isAuthenticated else {
                 personalRoutesStore.reset()
                 return
@@ -88,6 +81,7 @@ struct LibraryScreen: View {
                                     climbingRepository: climbingRepository,
                                     initialRoute: personalRoute.route,
                                     areaName: personalRoute.areaName,
+                                    climbingAreaID: personalRoute.climbingAreaId,
                                     personalRoutesStore: personalRoutesStore
                                 )
                             } label: {
@@ -139,23 +133,7 @@ struct LibraryScreen: View {
         }
     }
 
-    private func routeNameAscending(_ lhs: PersonalRoute, _ rhs: PersonalRoute) -> Bool {
-        lhs.route.name.localizedStandardCompare(rhs.route.name) == .orderedAscending
+    private var groupedRoutes: [LibraryRouteGroup] {
+        LibraryRouteGroup.grouping(displayedRoutes)
     }
-
-    private var groupedRoutes: [AreaRouteGroup] {
-        let routesByArea = Dictionary(grouping: displayedRoutes, by: \.route.areaId)
-
-        return routesByArea.map { areaID, routes in
-            AreaRouteGroup(
-                areaID: areaID,
-                areaName: routes.compactMap(\.areaName).first ?? "Other areas",
-                routes: routes.sorted(by: routeNameAscending)
-            )
-        }
-        .sorted {
-            $0.areaName.localizedStandardCompare($1.areaName) == .orderedAscending
-        }
-    }
-
 }

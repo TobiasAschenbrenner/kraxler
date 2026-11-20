@@ -62,10 +62,8 @@ struct ContentView: View {
 #endif
         } else {
             authenticatedContent
-                .onChange(of: authSession.account) { _, account in
-                    if account == nil {
-                        personalRoutesStore.reset()
-                    }
+                .onChange(of: authSession.account?.id, initial: true) { _, accountID in
+                    personalRoutesStore.selectAccount(accountID)
                 }
         }
     }

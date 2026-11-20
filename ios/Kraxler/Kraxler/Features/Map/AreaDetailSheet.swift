@@ -230,6 +230,7 @@ struct AreaDetailSheet: View {
                                     climbingRepository: climbingRepository,
                                     initialRoute: route,
                                     areaName: area.name,
+                                    climbingAreaID: area.type == .climbingArea ? area.id : nil,
                                     personalRoutesStore: personalRoutesStore
                                 )
                                 .toolbar(.visible, for: .navigationBar)

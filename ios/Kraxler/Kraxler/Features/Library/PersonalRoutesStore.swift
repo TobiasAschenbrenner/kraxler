@@ -16,38 +16,45 @@ final class PersonalRoutesStore {
 
     private let apiClient: APIClient
     private var statesByRouteID: [String: PersonalRouteState] = [:]
-    private var isLoading = false
+    private var loadingRequestID: UUID?
+    private var sessionID = UUID()
+    private var accountID: String?
 
     init(apiClient: APIClient) {
         self.apiClient = apiClient
     }
 
     func load(force: Bool = false) async {
-        if isLoading || (!force && loadState == .loaded) {
+        if loadingRequestID != nil || (!force && loadState == .loaded) {
             return
         }
 
         let hasExistingContent = loadState == .loaded || !routes.isEmpty
-        isLoading = true
+        let requestID = UUID()
+        let currentSession = sessionID
+        loadingRequestID = requestID
         if !hasExistingContent {
             loadState = .loading
         }
 
         defer {
-            isLoading = false
+            if loadingRequestID == requestID { loadingRequestID = nil }
         }
 
         do {
             let personalRoutes = try await apiClient.personalRoutes()
             try Task.checkCancellation()
+            guard sessionID == currentSession else { return }
             routes = personalRoutes
             statesByRouteID = Dictionary(
                 uniqueKeysWithValues: personalRoutes.map { ($0.routeId, $0.state) }
             )
             loadState = .loaded
         } catch is CancellationError {
+            guard sessionID == currentSession else { return }
             loadState = hasExistingContent ? .loaded : .idle
         } catch {
+            guard sessionID == currentSession else { return }
             if hasExistingContent {
                 loadState = .loaded
             } else {
@@ -61,7 +68,10 @@ final class PersonalRoutesStore {
             return cachedState
         }
 
+        let currentSession = sessionID
         let state = try await apiClient.personalRouteState(routeID: routeID)
+        try Task.checkCancellation()
+        guard sessionID == currentSession else { throw CancellationError() }
         statesByRouteID[routeID] = state
         return state
     }
@@ -69,9 +79,11 @@ final class PersonalRoutesStore {
     func update(
         route: ClimbingRoute,
         areaName: String? = nil,
+        climbingAreaID: String? = nil,
         isSaved: Bool,
         isTicked: Bool
     ) async throws -> PersonalRouteState {
+        let currentSession = sessionID
         let previousState = statesByRouteID[route.id] ?? .empty(routeID: route.id)
         let optimisticState = PersonalRouteState(
             routeId: route.id,
@@ -79,7 +91,7 @@ final class PersonalRoutesStore {
             isTicked: isTicked,
             tickedAt: isTicked ? previousState.tickedAt : nil
         )
-        apply(optimisticState, to: route, areaName: areaName)
+        apply(optimisticState, to: route, areaName: areaName, climbingAreaID: climbingAreaID)
 
         do {
             let confirmedState = try await apiClient.updatePersonalRouteState(
@@ -87,16 +99,27 @@ final class PersonalRoutesStore {
                 isSaved: isSaved,
                 isTicked: isTicked
             )
-            apply(confirmedState, to: route, areaName: areaName)
+            try Task.checkCancellation()
+            guard sessionID == currentSession else { throw CancellationError() }
+            apply(confirmedState, to: route, areaName: areaName, climbingAreaID: climbingAreaID)
             loadState = .loaded
             return confirmedState
         } catch {
-            apply(previousState, to: route, areaName: areaName)
+            guard sessionID == currentSession else { throw CancellationError() }
+            apply(previousState, to: route, areaName: areaName, climbingAreaID: climbingAreaID)
             throw error
         }
     }
 
+    func selectAccount(_ accountID: String?) {
+        guard self.accountID != accountID else { return }
+        self.accountID = accountID
+        reset()
+    }
+
     func reset() {
+        sessionID = UUID()
+        loadingRequestID = nil
         routes = []
         statesByRouteID = [:]
         loadState = .idle
@@ -105,7 +128,8 @@ final class PersonalRoutesStore {
     private func apply(
         _ state: PersonalRouteState,
         to route: ClimbingRoute,
-        areaName: String?
+        areaName: String?,
+        climbingAreaID: String?
     ) {
         statesByRouteID[route.id] = state
 
@@ -114,11 +138,12 @@ final class PersonalRoutesStore {
             return
         }
 
-        let knownAreaName = areaName
-            ?? routes.first(where: { $0.routeId == route.id })?.areaName
+        let existingRoute = routes.first(where: { $0.routeId == route.id })
+        let knownAreaName = areaName ?? existingRoute?.areaName
         let personalRoute = PersonalRoute(
             route: route,
             areaName: knownAreaName,
+            climbingAreaId: climbingAreaID ?? existingRoute?.climbingAreaId,
             routeId: route.id,
             isSaved: state.isSaved,
             isTicked: state.isTicked,

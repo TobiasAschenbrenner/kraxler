@@ -14,6 +14,7 @@ struct RouteDetailScreen: View {
     private let loadsRemoteRoute: Bool
     private let personalRoutesStore: PersonalRoutesStore?
     private let areaName: String?
+    private let climbingAreaID: String?
 
     @Environment(AuthSession.self) private var authSession
     @State private var routeState: RouteState
@@ -27,6 +28,7 @@ struct RouteDetailScreen: View {
         climbingRepository: ClimbingRepository? = nil,
         initialRoute: ClimbingRoute? = nil,
         areaName: String? = nil,
+        climbingAreaID: String? = nil,
         loadsRemoteRoute: Bool = true,
         personalRoutesStore: PersonalRoutesStore? = nil
     ) {
@@ -35,6 +37,7 @@ struct RouteDetailScreen: View {
         self.loadsRemoteRoute = loadsRemoteRoute
         self.personalRoutesStore = personalRoutesStore
         self.areaName = areaName
+        self.climbingAreaID = climbingAreaID
         _routeState = State(
             initialValue: initialRoute.map { RouteState.loaded($0, .remote) } ?? .loading
         )
@@ -197,6 +200,7 @@ struct RouteDetailScreen: View {
             return
         }
 
+        personalRoutesStore.selectAccount(authSession.account?.id)
         do {
             personalRouteState = try await personalRoutesStore.state(
                 for: routeID,
@@ -236,6 +240,7 @@ struct RouteDetailScreen: View {
             personalRouteState = try await personalRoutesStore.update(
                 route: route,
                 areaName: areaName,
+                climbingAreaID: climbingAreaID,
                 isSaved: isSaved,
                 isTicked: isTicked
             )

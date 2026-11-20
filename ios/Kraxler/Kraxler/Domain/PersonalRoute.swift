@@ -19,6 +19,7 @@ nonisolated struct PersonalRouteState: Codable, Equatable, Sendable {
 nonisolated struct PersonalRoute: Codable, Identifiable, Sendable {
     let route: ClimbingRoute
     let areaName: String?
+    let climbingAreaId: String?
     let routeId: String
     let isSaved: Bool
     let isTicked: Bool
@@ -27,6 +28,7 @@ nonisolated struct PersonalRoute: Codable, Identifiable, Sendable {
     init(
         route: ClimbingRoute,
         areaName: String? = nil,
+        climbingAreaId: String? = nil,
         routeId: String,
         isSaved: Bool,
         isTicked: Bool,
@@ -34,6 +36,7 @@ nonisolated struct PersonalRoute: Codable, Identifiable, Sendable {
     ) {
         self.route = route
         self.areaName = areaName
+        self.climbingAreaId = climbingAreaId
         self.routeId = routeId
         self.isSaved = isSaved
         self.isTicked = isTicked

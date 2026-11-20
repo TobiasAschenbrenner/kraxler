@@ -1,52 +1,39 @@
 # Kraxler 🧗
 
-Kraxler is a native, offline-first climbing guide for iPhone. It helps climbers
-discover nearby climbing areas and routes, navigate with their current location,
-save future projects, track completed climbs, and download selected areas for use
-with poor or no reception.
+Kraxler is a native iPhone climbing guide. It helps climbers find areas and routes,
+save projects, track completed climbs and download areas for offline use.
 
 ---
 
 ## ✨ Features
 
-- Explore climbing areas on an interactive Mapbox map
-- Show the user's location and heading, with automatic initial centering
-- Search globally for climbing areas and routes
-- Filter routes by grade, discipline, climbing style, length, and pitch count
-- View route grades, styles, descriptions, and locations
-- Save routes to a personal library and mark completed climbs as ticked
-- Download climbing data and map tiles for offline use
-- Manage downloaded areas from the profile
-- Register and sign in with email and password or Google
-- Restore the authenticated session after restarting the app
-- Follow the system appearance or select light and dark mode manually
+- Explore climbing areas on a map and center it on your location
+- Search for climbing areas and routes
+- Filter routes by grade, discipline, style, length and pitches
+- View route details and locations
+- Save projects and tick completed climbs in a library grouped by climbing area
+- Download climbing data and maps for offline use, and manage downloads
+- Register and sign in with email and password or Google, with persistent sessions
+- Edit your name and profile picture, and choose system, light or dark appearance
 
 ---
 
 ## 🛠 Tech Stack
 
-### iOS
+- **iOS:** Swift, SwiftUI, Mapbox Maps, Core Location and SwiftData
+- **Backend:** Node.js, TypeScript, Express and MongoDB Atlas (Mongoose)
+- **Authentication:** Firebase Authentication, Google Sign-In and Firebase Admin
+- **Testing:** Swift Testing, XCTest, Vitest and Supertest
+- **Deployment:** Hostinger, with automatic deployments from GitHub's `main` branch
 
-- Swift and SwiftUI
-- Mapbox Maps SDK and Core Location
-- SwiftData for downloaded climbing data
-- Firebase Authentication
-- AuthenticationServices and Google Sign-In
-- Swift Testing and XCTest
+---
 
-### Backend
+## 🏗 Architecture
 
-- Node.js, Express, and TypeScript
-- MongoDB Atlas and Mongoose
-- Firebase Admin for ID-token verification
-- Zod, Helmet, and Pino
-- Vitest, Supertest, and MongoDB Memory Server
-
-### Development
-
-- Postman for manual API testing
-- ESLint and the TypeScript compiler
-- Git and GitHub
+The SwiftUI app connects to an Express API hosted on Hostinger. MongoDB Atlas
+stores climbing content and personal data. Firebase authenticates users, and the
+API verifies their ID tokens before accessing profiles or saved and ticked routes.
+SwiftData stores downloaded climbing content; Mapbox provides maps and offline tiles.
 
 ---
 
@@ -54,36 +41,11 @@ with poor or no reception.
 
 ```text
 kraxler/
-├── ios/
-│   └── Kraxler/
-│       ├── Kraxler/          # SwiftUI app, domain models, services and features
-│       ├── KraxlerTests/     # Unit and integration tests using Swift Testing
-│       └── KraxlerUITests/   # End-to-end UI tests using XCTest
-├── backend/
-│   ├── src/                  # Express API, MongoDB models and seed data
-│   └── test/                 # API integration tests
-├── postman/                  # Postman API collection
-└── docs/                     # Supporting project documentation
+├── ios/Kraxler/             # iPhone app, Xcode project and tests
+├── backend/                 # Express API, MongoDB models, seed script and tests
+├── postman/                 # API request collection
+└── docs/                    # Project documentation
 ```
-
----
-
-## 🧩 Application Architecture
-
-The SwiftUI application reads climbing content through a repository that combines
-the Express API with a local SwiftData store. Mapbox provides the interactive map
-and offline tile regions. Firebase authenticates users on iOS, while the backend
-verifies their ID tokens before reading or changing personal route data.
-
----
-
-## 🗂️ Data Model
-
-MongoDB stores hierarchical climbing areas, routes, and user-specific route state.
-Areas reference an optional parent area, allowing regions, climbing areas, and
-sectors to share one collection. Routes reference their sector or climbing area,
-while personal-route documents connect a Firebase user to saved and ticked routes.
-GeoJSON points and `2dsphere` indexes support location-based queries.
 
 ---
 
@@ -91,89 +53,57 @@ GeoJSON points and `2dsphere` indexes support location-based queries.
 
 ### Prerequisites
 
-- macOS with Xcode 27 or later
-- An iOS 26 or newer Simulator
+- macOS with Xcode 27 or later and an iOS 26 or newer simulator or iPhone
 - Node.js 22 or later and npm
-- MongoDB, locally or through MongoDB Atlas
-- A Firebase project with an iOS app and Authentication enabled
-- A Mapbox account and public access token
+- MongoDB, locally or through Atlas
+- Firebase project with Email/Password and Google authentication enabled
+- Mapbox account and public access token
 
-Clone the repository and install the backend dependencies:
+### Backend
 
 ```bash
 git clone https://github.com/TobiasAschenbrenner/kraxler.git
 cd kraxler/backend
 npm ci
-```
-
-### Backend configuration
-
-Create the local environment file:
-
-```bash
 cp .env.example .env
 ```
 
-Configure these values in `backend/.env`:
-
-```bash
-NODE_ENV=development
-PORT=3000
-MONGODB_URI=your_mongodb_connection_string
-FIREBASE_PROJECT_ID=your_firebase_project_id
-```
-
-Authenticated API routes use Firebase Admin Application Default Credentials.
-Configure them locally with either `gcloud auth application-default login` or a
-private service-account file referenced by `GOOGLE_APPLICATION_CREDENTIALS`.
-Never commit the service-account file.
-
-Load the development dataset and start the API:
+Set `MONGODB_URI` and `FIREBASE_PROJECT_ID` in `backend/.env`. Firebase Admin uses
+Application Default Credentials: configure these with `gcloud auth application-default login`
+or a private service-account file referenced by `GOOGLE_APPLICATION_CREDENTIALS`.
+Environment files and service-account credentials must stay out of Git.
 
 ```bash
 npm run seed
 npm run dev
 ```
 
-The API runs at [http://localhost:3000](http://localhost:3000). `GET /health`
-reports process health and `GET /ready` additionally checks the database connection.
+The local API runs at [http://localhost:3000](http://localhost:3000).
 
-### iOS configuration
+### iOS
 
-Create `ios/Kraxler/Config/MapboxSecrets.xcconfig` and add your public Mapbox token:
+Create the Git-ignored `ios/Kraxler/Config/MapboxSecrets.xcconfig`:
 
 ```text
 MAPBOX_ACCESS_TOKEN = your_public_mapbox_access_token
 ```
 
-The file is ignored by Git. Add the Firebase `GoogleService-Info.plist` for the
-bundle identifier `com.tobiasaschenbrenner.kraxler` if you are connecting a
-different Firebase project.
+The bundled Firebase configuration belongs to the Kraxler project. For your own
+Firebase project, replace `GoogleService-Info.plist` and update the Google Sign-In
+URL scheme in `ios/Kraxler/Kraxler/Info.plist`.
 
-Open the Xcode project:
+Open `ios/Kraxler/Kraxler.xcodeproj`, select the **Kraxler** scheme and a simulator,
+then press **⌘R**. Select your development team when running on an iPhone.
 
-```bash
-open ios/Kraxler/Kraxler.xcodeproj
-```
-
-Select the **Kraxler** scheme and an iOS Simulator, then press **⌘R**. The local
-development build connects to `http://localhost:3000`, so the backend must be
-running before loading online climbing content.
+The app uses the hosted API by default. For local simulator testing, change the
+default `baseURL` in [APIClient.swift](ios/Kraxler/Kraxler/Core/Networking/APIClient.swift)
+to `http://localhost:3000`.
 
 ---
 
-## 📊 Development Data
+## 🧪 Running Tests and Quality Checks
 
-The seed script creates a compact demonstration dataset for Fontainebleau and the
-Frankenjura. It contains a region, climbing area, and sector hierarchy together
-with bouldering and sport routes using Fontainebleau and UIAA grades. Seeding uses
-upserts, so it can be run repeatedly without duplicating the included records.
-
----
-
-## 🧪 Tests and Quality Checks
-
-Run the backend checks from `backend/`:
+From `backend/`:
 
 ```bash
 npm run lint
@@ -181,58 +111,49 @@ npm run build
 npm test
 ```
 
-The backend test suite uses isolated in-memory MongoDB instances and does not modify
-the configured development database.
-
-Run the iOS unit and UI tests in Xcode with **Product → Test** or from the repository
-root:
-
-```bash
-xcodebuild test \
-  -project ios/Kraxler/Kraxler.xcodeproj \
-  -scheme Kraxler \
-  -destination 'platform=iOS Simulator,name=iPhone 18 Pro'
-```
-
-The iOS tests cover authentication state, networking, filtering, personal routes,
-offline persistence, download management, map loading, navigation, and sign-out.
+Backend tests use isolated in-memory MongoDB instances. The iOS tests cover
+authentication, networking, filtering, saved and ticked routes, offline storage
+and navigation. Run them in Xcode with **Product → Test** (**⌘U**).
 
 ---
 
-## 🔐 Security Considerations
+## 🗂️ Data Model
 
-- Firebase handles user credentials and persistent authentication sessions.
-- The iOS app sends short-lived Firebase ID tokens to protected API routes.
-- The backend verifies every protected request with Firebase Admin.
-- Request validation, security headers, body-size limits, and centralized errors
-  reduce the API's exposed surface.
-- Mapbox access configuration, environment variables, and service-account
-  credentials are kept outside version control.
+MongoDB stores areas, routes, personal route records and user profiles. Areas form
+an optional region–climbing area–sector hierarchy. Routes reference an area;
+personal records link Firebase user IDs to saved and ticked routes. GeoJSON points
+and `2dsphere` indexes support map queries.
+
+---
+
+## 📊 Development Data
+
+`npm run seed` adds six area records and five routes across Cuvier in Fontainebleau
+and Röthelfels in the Frankenjura. It uses upserts, so repeated runs update the
+included records without duplicating them.
 
 ---
 
 ## 🚧 Project Status
 
-Kraxler is an active ten-week solo capstone project. The current prototype runs in
-the iOS Simulator with the local API. Backend hosting, physical-device testing, and
-TestFlight distribution are the next deployment milestones. Sign in with Apple is
-implemented in the app, but its capability and Firebase provider remain disabled
-until the Apple Developer Program enrollment is approved.
+Kraxler is a prototype under active development. Physical-iPhone testing is still
+pending. Sign in with Apple has app-side support but still needs its capability
+and Firebase provider activated. Grade conversion between systems is planned.
 
 ---
 
 ## 🎓 Project Context
 
-The project brings together native mobile development, API design, NoSQL data
-modelling, geospatial queries, authentication, offline storage, automated testing,
-clean-code practices, and application security. It is also used as practical work
-for the Mobile App Development module.
+A solo university capstone project, also used for the Mobile App Development
+module, covering native iOS development, API design, NoSQL modelling,
+authentication, offline storage and automated testing.
 
 ---
 
 ## 🤖 Use of AI Tools
 
-AI tools supported architecture discussions, implementation, debugging, testing,
-and documentation. The author reviews the resulting code and remains responsible
-for understanding, validating, and explaining the submitted work.
-
+AI tools were used to support implementation, discuss architecture and refactoring
+options, understand errors and reason about native iOS development, MongoDB data
+modelling, authentication and offline storage. They also supported testing and
+project documentation. All implementation decisions and final validations were
+performed by the author.

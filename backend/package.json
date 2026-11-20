@@ -12,6 +12,7 @@
     "build": "node scripts/build.mjs",
     "start": "node dist/server.js",
     "seed": "tsx src/database/seed.ts",
+    "import:climbing": "tsx src/database/import-climbing-sample.ts",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest"

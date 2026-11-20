@@ -24,6 +24,15 @@ export interface RouteGrade {
   rank: number;
 }
 
+export interface RouteTopo {
+  id: string;
+  imageUrl: string;
+  cloudinaryPublicId?: string;
+  routeNumber: string;
+  pixelWidth: number;
+  pixelHeight: number;
+}
+
 export interface ClimbingRoute {
   name: string;
   areaId: Types.ObjectId;
@@ -34,6 +43,7 @@ export interface ClimbingRoute {
   lengthMeters?: number;
   pitches?: number;
   description?: string;
+  topos?: RouteTopo[];
 }
 
 const pointSchema = new Schema<GeoJsonPoint>(
@@ -92,6 +102,32 @@ const gradeSchema = new Schema<RouteGrade>(
   { _id: false },
 );
 
+const topoSchema = new Schema<RouteTopo>(
+  {
+    id: { type: String, required: true, trim: true, maxlength: 160 },
+    imageUrl: {
+      type: String,
+      required: true,
+      validate: {
+        validator: (value: string) => {
+          try {
+            const url = new URL(value);
+            return url.protocol === "https:" && !url.username && !url.password;
+          } catch {
+            return false;
+          }
+        },
+        message: "Topo images must have a valid HTTPS URL.",
+      },
+    },
+    cloudinaryPublicId: { type: String, trim: true, maxlength: 255 },
+    routeNumber: { type: String, required: true, trim: true, maxlength: 20 },
+    pixelWidth: { type: Number, required: true, min: 1, validate: Number.isInteger },
+    pixelHeight: { type: Number, required: true, min: 1, validate: Number.isInteger },
+  },
+  { _id: false, id: false },
+);
+
 const routeSchema = new Schema<ClimbingRoute>(
   {
     name: {
@@ -137,6 +173,7 @@ const routeSchema = new Schema<ClimbingRoute>(
       trim: true,
       maxlength: 2_000,
     },
+    topos: { type: [topoSchema], default: undefined },
   },
   { timestamps: true },
 );

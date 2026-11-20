@@ -264,6 +264,14 @@ private struct RouteDetailContent<Actions: View>: View {
                 routeHeader
                 facts
 
+                if let topos = route.topos, !topos.isEmpty {
+                    section("Route topo") {
+                        ForEach(topos) { topo in
+                            RouteTopoCard(topo: topo)
+                        }
+                    }
+                }
+
                 if !route.styles.isEmpty {
                     styles
                 }

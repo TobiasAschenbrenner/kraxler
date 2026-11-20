@@ -25,6 +25,16 @@ export const serializeRoute = (route: ClimbingRoute & { _id: Types.ObjectId }) =
   ...(route.description === undefined
     ? {}
     : { description: route.description }),
+  ...(!route.topos?.length ? {} : {
+    topos: route.topos.map((topo) => ({
+      id: topo.id,
+      imageUrl: topo.imageUrl,
+      ...(topo.cloudinaryPublicId ? { cloudinaryPublicId: topo.cloudinaryPublicId } : {}),
+      routeNumber: topo.routeNumber,
+      pixelWidth: topo.pixelWidth,
+      pixelHeight: topo.pixelHeight,
+    })),
+  }),
 });
 
 const buildRouteFilter = (

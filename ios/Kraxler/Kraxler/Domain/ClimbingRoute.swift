@@ -31,6 +31,15 @@ nonisolated struct ClimbingRoute: Codable, Hashable, Identifiable, Sendable {
         let rank: Int
     }
 
+    struct Topo: Codable, Hashable, Identifiable, Sendable {
+        let id: String
+        let imageUrl: URL
+        let cloudinaryPublicId: String?
+        let routeNumber: String
+        let pixelWidth: Int
+        let pixelHeight: Int
+    }
+
     let id: String
     let areaId: String
     let name: String
@@ -41,6 +50,33 @@ nonisolated struct ClimbingRoute: Codable, Hashable, Identifiable, Sendable {
     let lengthMeters: Double?
     let pitches: Int?
     let description: String?
+    let topos: [Topo]?
+
+    init(
+        id: String,
+        areaId: String,
+        name: String,
+        location: GeoJSONPoint,
+        discipline: Discipline,
+        grade: Grade,
+        styles: [Style],
+        lengthMeters: Double?,
+        pitches: Int?,
+        description: String?,
+        topos: [Topo]? = nil
+    ) {
+        self.id = id
+        self.areaId = areaId
+        self.name = name
+        self.location = location
+        self.discipline = discipline
+        self.grade = grade
+        self.styles = styles
+        self.lengthMeters = lengthMeters
+        self.pitches = pitches
+        self.description = description
+        self.topos = topos
+    }
 }
 
 extension ClimbingRoute.Discipline {

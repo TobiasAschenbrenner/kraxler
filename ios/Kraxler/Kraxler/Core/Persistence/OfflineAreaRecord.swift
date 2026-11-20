@@ -92,6 +92,7 @@ final class OfflineRouteRecord {
     var lengthMeters: Double?
     var pitches: Int?
     var routeDescription: String?
+    var toposData: Data?
     var area: OfflineAreaRecord?
 
     init(route: ClimbingRoute, area: OfflineAreaRecord? = nil) {
@@ -108,6 +109,7 @@ final class OfflineRouteRecord {
         lengthMeters = route.lengthMeters
         pitches = route.pitches
         routeDescription = route.description
+        toposData = route.topos.flatMap { try? JSONEncoder().encode($0) }
         self.area = area
     }
 
@@ -140,7 +142,8 @@ final class OfflineRouteRecord {
             styles: styles,
             lengthMeters: lengthMeters,
             pitches: pitches,
-            description: routeDescription
+            description: routeDescription,
+            topos: toposData.flatMap { try? JSONDecoder().decode([ClimbingRoute.Topo].self, from: $0) }
         )
     }
 }

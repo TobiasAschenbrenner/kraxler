@@ -163,7 +163,7 @@ struct MapScreen: View {
         } message: {
             Text("Allow location access in Settings.")
         }
-        .sheet(item: $sheetDestination, onDismiss: {
+        .fullScreenCover(item: $sheetDestination, onDismiss: {
             selectedAreaID = nil
             presentPendingAreaFromSearch()
         }) { destination in

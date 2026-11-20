@@ -18,29 +18,42 @@ struct AreaDetailSheet: View {
     let offlineDownloadsStore: OfflineDownloadsStore?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .headline) private var routesHeadingSize: CGFloat = 19
     @State private var routeState: RouteState = .loading
     @State private var filters = RouteFilters()
     @State private var sheetDestination: SheetDestination?
+    @State private var isExpanded = false
+    @GestureState private var dragTranslation: CGFloat = 0
 
     var body: some View {
-        NavigationStack {
-            routeContent
-                .background(KraxlerScreenBackground())
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close", systemImage: "xmark") { dismiss() }
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Filter", systemImage: filterSymbolName) {
-                            sheetDestination = .filters
-                        }
-                        .accessibilityIdentifier("route-filter-button")
-                    }
+        GeometryReader { geometry in
+            ZStack(alignment: .bottom) {
+                Color.clear
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { dismiss() }
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 0) {
+                    dragHandle
+                    navigationContent
                 }
+                .frame(maxWidth: .infinity)
+                .frame(height: panelHeight(in: geometry.size.height))
+                .background {
+                    UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32)
+                        .fill(Color(.systemBackground))
+                        .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("area-detail-panel")
+                .animation(reduceMotion ? nil : .spring(duration: 0.55, bounce: 0), value: isExpanded)
+            }
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(.regularMaterial)
+        .presentationBackground(.clear)
+        .tint(KraxlerDesign.accent)
+        .accessibilityAction(.escape) { dismiss() }
         .task(id: RouteRequestKey(areaID: area.id, filters: filters)) {
             await loadRoutes()
         }
@@ -52,13 +65,124 @@ struct AreaDetailSheet: View {
         }
     }
 
+    private var navigationContent: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                areaControlsHeader
+                routesHeader
+                routeContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .containerBackground(.clear, for: .navigation)
+    }
+
+    private var areaControlsHeader: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            GlassEffectContainer(spacing: 12) {
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
+                    .accessibilityLabel("Close")
+                    .accessibilityIdentifier("area-detail-close")
+                    Spacer()
+                    offlineDownloadControl
+                }
+            }
+            areaHeader(routes: loadedRoutes)
+        }
+        .padding(.horizontal, KraxlerDesign.pagePadding)
+        .padding(.bottom, 8)
+    }
+
+    private var routesHeader: some View {
+        HStack {
+            Text("Routes")
+                .font(.system(size: routesHeadingSize, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("area-routes-heading")
+            Spacer()
+            Button {
+                sheetDestination = .filters
+            } label: {
+                Image(systemName: filterSymbolName)
+            }
+            .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
+            .accessibilityLabel("Filter")
+            .accessibilityIdentifier("route-filter-button")
+        }
+        .padding(.horizontal, KraxlerDesign.pagePadding)
+        .padding(.bottom, 16)
+    }
+
+    private var loadedRoutes: [ClimbingRoute]? {
+        guard case .loaded(let routes, _) = routeState else {
+            return nil
+        }
+        return routes
+    }
+
+    private var dragHandle: some View {
+        Capsule()
+            .fill(.secondary.opacity(0.45))
+            .frame(width: 44, height: 5)
+            .frame(maxWidth: .infinity)
+            .frame(height: 24)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture()
+                    .updating($dragTranslation) { value, translation, _ in
+                        translation = value.translation.height
+                    }
+                    .onEnded { value in
+                        let travel = value.predictedEndTranslation.height
+                        if travel < -60 {
+                            isExpanded = true
+                        } else if travel > 100 {
+                            collapseOrDismiss()
+                        }
+                    }
+            )
+            .accessibilityLabel("Sheet Grabber")
+            .accessibilityIdentifier("area-detail-grabber")
+            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment:
+                    isExpanded = true
+                case .decrement:
+                    collapseOrDismiss()
+                @unknown default:
+                    break
+                }
+            }
+    }
+
+    private func panelHeight(in availableHeight: CGFloat) -> CGFloat {
+        let restingHeight = isExpanded ? availableHeight : availableHeight * 0.56
+        return min(availableHeight, max(200, restingHeight - dragTranslation))
+    }
+
+    private func collapseOrDismiss() {
+        if isExpanded {
+            isExpanded = false
+        } else {
+            dismiss()
+        }
+    }
+
     @ViewBuilder
     private var routeContent: some View {
         switch routeState {
         case .loading:
             VStack(spacing: 24) {
-                areaHeader(routes: nil)
-                    .padding(.horizontal, KraxlerDesign.pagePadding)
                 Spacer()
                 ProgressView("Loading routes…")
                 Spacer()
@@ -66,8 +190,6 @@ struct AreaDetailSheet: View {
 
         case .loaded(let routes, _) where routes.isEmpty && filters.isEmpty:
             VStack(spacing: 18) {
-                areaHeader(routes: routes)
-                    .padding(.horizontal, KraxlerDesign.pagePadding)
                 ContentUnavailableView(
                     "No routes yet",
                     systemImage: "figure.climbing",
@@ -77,12 +199,6 @@ struct AreaDetailSheet: View {
 
         case .loaded(let routes, let source):
             List {
-                Section {
-                    areaHeader(routes: routes)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 14, trailing: 0))
-                        .listRowBackground(Color.clear)
-                }
-
                 offlineDownloadStatus
 
                 if source == .offline {
@@ -105,7 +221,7 @@ struct AreaDetailSheet: View {
                     }
                     .listRowBackground(Color.clear)
                 } else {
-                    Section("Routes") {
+                    Section {
                         ForEach(routes) { route in
                             NavigationLink {
                                 RouteDetailScreen(
@@ -115,6 +231,7 @@ struct AreaDetailSheet: View {
                                     areaName: area.name,
                                     personalRoutesStore: personalRoutesStore
                                 )
+                                .toolbar(.visible, for: .navigationBar)
                             } label: {
                                 RouteSummaryRow(route: route)
                             }
@@ -126,11 +243,10 @@ struct AreaDetailSheet: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
+            .contentMargins(.top, 0, for: .scrollContent)
 
         case .failed(let message):
             VStack(spacing: 18) {
-                areaHeader(routes: nil)
-                    .padding(.horizontal, KraxlerDesign.pagePadding)
                 ContentUnavailableView {
                     Label("Routes unavailable", systemImage: "wifi.exclamationmark")
                 } description: {
@@ -143,15 +259,11 @@ struct AreaDetailSheet: View {
     }
 
     private func areaHeader(routes: [ClimbingRoute]?) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(area.name)
-                        .font(.largeTitle.bold())
-                }
-                Spacer()
-                offlineDownloadControl
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            Text(area.name)
+                .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("area-detail-name")
 
             if let routes {
                 HStack(spacing: 18) {

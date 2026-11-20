@@ -10,6 +10,7 @@ struct AreaDetailSheet: View {
         case loading
         case loaded([ClimbingRoute], ClimbingContentSource)
         case failed(String)
+        case notAvailableOffline
     }
 
     let area: ClimbingArea
@@ -54,7 +55,7 @@ struct AreaDetailSheet: View {
         .presentationBackground(.clear)
         .tint(KraxlerDesign.accent)
         .accessibilityAction(.escape) { dismiss() }
-        .task(id: RouteRequestKey(areaID: area.id, filters: filters)) {
+        .task(id: RouteRequestKey(areaID: area.id, filters: filters, connectionRevision: climbingRepository.connectionRevision)) {
             await loadRoutes()
         }
         .sheet(item: $sheetDestination) { destination in
@@ -244,6 +245,9 @@ struct AreaDetailSheet: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .contentMargins(.top, 0, for: .scrollContent)
+
+        case .notAvailableOffline:
+            ContentUnavailableView("Not available offline", systemImage: "wifi.slash")
 
         case .failed(let message):
             VStack(spacing: 18) {
@@ -488,7 +492,11 @@ struct AreaDetailSheet: View {
             routeState = .loaded(response.value, response.source)
         } catch is CancellationError {
             return
+        } catch ClimbingRepositoryError.notAvailableOffline {
+            guard !Task.isCancelled else { return }
+            routeState = .notAvailableOffline
         } catch {
+            guard !Task.isCancelled else { return }
             routeState = .failed("The routes for \(area.name) could not be loaded.")
         }
     }
@@ -501,6 +509,7 @@ struct AreaDetailSheet: View {
 private struct RouteRequestKey: Hashable {
     let areaID: String
     let filters: RouteFilters
+    let connectionRevision: Int
 }
 
 private extension ClimbingArea.AreaType {

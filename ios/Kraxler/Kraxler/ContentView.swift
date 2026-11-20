@@ -20,13 +20,15 @@ struct ContentView: View {
 
     init(
         apiClient: APIClient = APIClient(),
-        modelContainer: ModelContainer
+        modelContainer: ModelContainer,
+        connectivity: ConnectivityMonitor? = nil
     ) {
         self.apiClient = apiClient
         let offlineStore = OfflineClimbingStore(modelContainer: modelContainer)
         climbingRepository = ClimbingRepository(
             apiClient: apiClient,
-            offlineStore: offlineStore
+            offlineStore: offlineStore,
+            connectivity: connectivity
         )
         _offlineDownloadsStore = State(
             initialValue: OfflineDownloadsStore(

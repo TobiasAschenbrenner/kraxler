@@ -6,6 +6,7 @@ struct RouteDetailScreen: View {
         case loading
         case loaded(ClimbingRoute, ClimbingContentSource)
         case failed(String)
+        case notAvailableOffline
     }
 
     private let routeID: String
@@ -45,7 +46,7 @@ struct RouteDetailScreen: View {
     var body: some View {
         content
             .toolbarBackground(.hidden, for: .navigationBar)
-            .task(id: routeID) {
+            .task(id: RouteContentRequestKey(routeID: routeID, connectionRevision: climbingRepository.connectionRevision)) {
                 guard loadsRemoteRoute else {
                     return
                 }
@@ -71,6 +72,9 @@ struct RouteDetailScreen: View {
             RouteDetailContent(route: route, source: source) {
                 personalRouteActions(for: route)
             }
+
+        case .notAvailableOffline:
+            ContentUnavailableView("Not available offline", systemImage: "wifi.slash")
 
         case .failed(let message):
             ContentUnavailableView {
@@ -161,7 +165,8 @@ struct RouteDetailScreen: View {
     }
 
     private func loadRoute() async {
-        routeState = .loading
+        let previousState = routeState
+        if case .loaded = routeState {} else { routeState = .loading }
 
         do {
             let response = try await climbingRepository.route(id: routeID)
@@ -171,8 +176,14 @@ struct RouteDetailScreen: View {
             routeState = .loaded(response.value, response.source)
         } catch is CancellationError {
             return
+        } catch ClimbingRepositoryError.notAvailableOffline {
+            guard !Task.isCancelled else { return }
+            if case .loaded = previousState { routeState = previousState }
+            else { routeState = .notAvailableOffline }
         } catch {
-            routeState = .failed("The route details could not be loaded.")
+            guard !Task.isCancelled else { return }
+            if case .loaded = previousState { routeState = previousState }
+            else { routeState = .failed("The route details could not be loaded.") }
         }
     }
 
@@ -523,3 +534,8 @@ extension ClimbingRoute {
     .environment(AuthSession())
 }
 #endif
+
+private struct RouteContentRequestKey: Hashable {
+    let routeID: String
+    let connectionRevision: Int
+}

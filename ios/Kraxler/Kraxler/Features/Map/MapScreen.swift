@@ -122,11 +122,24 @@ struct MapScreen: View {
 
             statusOverlay
         }
-        .task(id: requestedBounds) {
+        .overlay(alignment: .bottom) {
+            if climbingRepository.showsOfflineIndicator {
+                Label("Offline", systemImage: "wifi.slash")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .glassEffect(.regular, in: .capsule)
+                    .accessibilityIdentifier("map-offline-indicator")
+                    .allowsHitTesting(false)
+                    .padding(.bottom, 10)
+            }
+        }
+        .task(id: MapRequestKey(bounds: requestedBounds, connectionRevision: climbingRepository.connectionRevision)) {
             guard loadsRemoteAreas else {
                 return
             }
-            await model.loadAreas(in: requestedBounds)
+            await model.loadAreas(in: requestedBounds, force: true)
         }
         .task {
             requestInitialUserLocation()
@@ -280,11 +293,7 @@ struct MapScreen: View {
             EmptyView()
 
         case .loaded:
-            if model.contentSource == .offline {
-                statusPill {
-                    Label("Showing downloaded areas", systemImage: "arrow.down.circle.fill")
-                }
-            }
+            EmptyView()
 
         case .loading:
             statusPill {
@@ -586,4 +595,9 @@ private extension ClimbingArea {
         initialErrorMessage: "The preview API is unavailable.",
         loadsRemoteAreas: false
     )
+}
+
+private struct MapRequestKey: Hashable {
+    let bounds: MapBounds
+    let connectionRevision: Int
 }

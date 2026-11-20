@@ -15,6 +15,7 @@ struct KraxlerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @AppStorage(AppAppearance.storageKey) private var appearance = AppAppearance.system
     @State private var authSession: AuthSession
+    @State private var connectivity = ConnectivityMonitor()
     private let modelContainer: ModelContainer
 
     init() {
@@ -55,13 +56,21 @@ struct KraxlerApp: App {
         WindowGroup {
             ContentView(
                 apiClient: apiClient,
-                modelContainer: modelContainer
+                modelContainer: modelContainer,
+                connectivity: connectivity
             )
             .environment(authSession)
             .modelContainer(modelContainer)
             .preferredColorScheme(appearance.colorScheme)
             .task {
                 authSession.start()
+#if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-ui-test-offline") {
+                    await UITestOfflineScenario.run(connectivity: connectivity, modelContainer: modelContainer)
+                    return
+                }
+#endif
+                connectivity.start()
             }
         }
     }

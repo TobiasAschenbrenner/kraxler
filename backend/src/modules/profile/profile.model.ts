@@ -4,7 +4,10 @@ export interface UserProfile {
   userId: string;
   displayName: string;
   avatarBase64: string | null;
+  avatarUrl: string | null;
+  avatarPublicId: string | null;
   usesDefaultAvatar: boolean;
+  __v: number;
 }
 
 const profileSchema = new Schema<UserProfile>(
@@ -12,6 +15,8 @@ const profileSchema = new Schema<UserProfile>(
     userId: { type: String, required: true, maxlength: 128 },
     displayName: { type: String, required: true, trim: true, maxlength: 80 },
     avatarBase64: { type: String, default: null, maxlength: 65_536 },
+    avatarUrl: { type: String, default: null, maxlength: 2048 },
+    avatarPublicId: { type: String, default: null, maxlength: 255 },
     usesDefaultAvatar: { type: Boolean, default: false },
   },
   { timestamps: true },

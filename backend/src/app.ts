@@ -12,11 +12,13 @@ import { areaRouter } from "./modules/areas/area.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { createPersonalRouteRouter } from "./modules/personal-routes/personal-route.routes.js";
 import { createProfileRouter } from "./modules/profile/profile.routes.js";
+import { type AvatarStorage, createAvatarStorage } from "./modules/profile/avatar-storage.js";
 import { routeRouter } from "./modules/routes/route.routes.js";
 import { searchRouter } from "./modules/search/search.routes.js";
 
 interface AppDependencies {
   verifyAuthToken: AuthTokenVerifier;
+  avatarStorage?: AvatarStorage;
 }
 
 export const createApp = (
@@ -38,7 +40,9 @@ export const createApp = (
   expressApp.use("/api/v1", areaRouter);
   expressApp.use("/api/v1", routeRouter);
   expressApp.use("/api/v1", searchRouter);
-  expressApp.use("/api/v1", createProfileRouter(dependencies.verifyAuthToken));
+  expressApp.use("/api/v1", createProfileRouter(
+    dependencies.verifyAuthToken, dependencies.avatarStorage ?? createAvatarStorage(),
+  ));
   expressApp.use(
     "/api/v1",
     createPersonalRouteRouter(dependencies.verifyAuthToken),

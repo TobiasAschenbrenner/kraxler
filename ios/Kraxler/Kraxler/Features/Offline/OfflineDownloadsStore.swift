@@ -137,10 +137,8 @@ final class OfflineDownloadsStore {
         operationsByAreaID[areaID] = .removing
 
         do {
-            if downloadedMapAreaIDs.contains(areaID) {
-                try await offlineMapStore.removeMap(for: areaID)
-                downloadedMapAreaIDs.remove(areaID)
-            }
+            try await offlineMapStore.removeMap(for: areaID)
+            downloadedMapAreaIDs.remove(areaID)
             try climbingRepository.removeDownload(for: areaID)
             manifestsByAreaID[areaID] = nil
             downloadedTopoAreaIDs.remove(areaID)

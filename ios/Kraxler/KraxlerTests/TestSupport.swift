@@ -187,6 +187,7 @@ final class OfflineMapStoreSpy: OfflineMapStore {
     private(set) var downloadedAreaIDsValue: Set<String>
     private(set) var removedAreaIDs: [String] = []
     var downloadError: Error?
+    var removalError: Error?
 
     init(downloadedAreaIDs: Set<String> = []) {
         downloadedAreaIDsValue = downloadedAreaIDs
@@ -211,6 +212,9 @@ final class OfflineMapStoreSpy: OfflineMapStore {
     func removeMap(for areaID: String) async throws {
         downloadedAreaIDsValue.remove(areaID)
         removedAreaIDs.append(areaID)
+        if let removalError {
+            throw removalError
+        }
     }
 }
 

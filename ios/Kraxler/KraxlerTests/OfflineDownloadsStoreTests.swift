@@ -53,6 +53,60 @@ extension KraxlerTests {
     }
 
     @Test
+    func retriesMapCleanupAfterReloadWithoutDeletingClimbingDataEarly() async throws {
+        let store = try makeOfflineStore()
+        try store.save(area: Self.offlineArea, routes: [Self.offlineRoute])
+        let mapStore = OfflineMapStoreSpy(downloadedAreaIDs: [Self.offlineArea.id, "other-area"])
+        let downloadsStore = OfflineDownloadsStore(
+            climbingRepository: ClimbingRepository(apiClient: makeFailingClient(), offlineStore: store),
+            offlineMapStore: mapStore
+        )
+        await downloadsStore.load()
+        mapStore.removalError = URLError(.cannotRemoveFile)
+
+        await downloadsStore.remove(areaID: Self.offlineArea.id)
+
+        guard case .failed = downloadsStore.operation(for: Self.offlineArea.id) else {
+            Issue.record("A failed tile cleanup should remain retryable.")
+            return
+        }
+        #expect(try store.manifest(for: Self.offlineArea.id) != nil)
+        #expect(try store.route(id: Self.offlineRoute.id) != nil)
+        #expect(mapStore.downloadedAreaIDsValue == ["other-area"])
+
+        // Reloading discovers that Mapbox's region was already removed.
+        await downloadsStore.load()
+        #expect(!downloadsStore.downloadedMapAreaIDs.contains(Self.offlineArea.id))
+        mapStore.removalError = nil
+        await downloadsStore.remove(areaID: Self.offlineArea.id)
+
+        #expect(mapStore.removedAreaIDs == [Self.offlineArea.id, Self.offlineArea.id])
+        #expect(mapStore.downloadedAreaIDsValue == ["other-area"])
+        #expect(downloadsStore.operation(for: Self.offlineArea.id) == .idle)
+        #expect(downloadsStore.downloadedManifests.isEmpty)
+        #expect(try store.route(id: Self.offlineRoute.id) == nil)
+    }
+
+    @Test
+    func removesCachedMapsEvenWhenOnlyClimbingDataIsListed() async throws {
+        let store = try makeOfflineStore()
+        try store.save(area: Self.offlineArea, routes: [Self.offlineRoute])
+        let mapStore = OfflineMapStoreSpy()
+        let downloadsStore = OfflineDownloadsStore(
+            climbingRepository: ClimbingRepository(apiClient: makeFailingClient(), offlineStore: store),
+            offlineMapStore: mapStore
+        )
+        await downloadsStore.load()
+
+        await downloadsStore.remove(areaID: Self.offlineArea.id)
+        await downloadsStore.remove(areaID: Self.offlineArea.id)
+
+        #expect(mapStore.removedAreaIDs == [Self.offlineArea.id, Self.offlineArea.id])
+        #expect(downloadsStore.downloadedManifests.isEmpty)
+        #expect(downloadsStore.operation(for: Self.offlineArea.id) == .idle)
+    }
+
+    @Test
     func reportsFailedAreaDownloads() async throws {
         let store = try makeOfflineStore()
         let repository = ClimbingRepository(

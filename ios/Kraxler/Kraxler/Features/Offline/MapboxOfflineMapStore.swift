@@ -62,9 +62,20 @@ final class MapboxOfflineMapStore: OfflineMapStore {
     }
 
     func removeMap(for areaID: String) async throws {
+        do {
+            try await withCheckedThrowingContinuation { continuation in
+                tileStore.removeRegion(forId: Self.tileRegionID(for: areaID)) { result in
+                    continuation.resume(with: result.map { _ in () })
+                }
+            }
+        } catch TileRegionError.doesNotExist(_) {
+            // A previous attempt may have removed the region before cleanup failed.
+        }
+
+        // Removing a region releases its tiles into the cache. Reclaim them while
+        // preserving resources still required by other offline regions and styles.
         try await withCheckedThrowingContinuation { continuation in
-            tileStore.removeRegion(forId: Self.tileRegionID(for: areaID)) {
-                result in
+            tileStore.clearAmbientCache { result in
                 continuation.resume(with: result.map { _ in () })
             }
         }

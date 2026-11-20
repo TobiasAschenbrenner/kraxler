@@ -49,13 +49,18 @@ struct AreaDetailSheet: View {
                 }
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("area-detail-panel")
-                .animation(reduceMotion ? nil : .spring(duration: 0.55, bounce: 0), value: isExpanded)
+                .animation(
+                    reduceMotion ? nil : .spring(duration: 0.55, bounce: 0), value: isExpanded)
             }
         }
         .presentationBackground(.clear)
         .tint(KraxlerDesign.accent)
         .accessibilityAction(.escape) { dismiss() }
-        .task(id: RouteRequestKey(areaID: area.id, filters: filters, connectionRevision: climbingRepository.connectionRevision)) {
+        .task(
+            id: RouteRequestKey(
+                areaID: area.id, filters: filters,
+                connectionRevision: climbingRepository.connectionRevision)
+        ) {
             await loadRoutes()
         }
         .sheet(item: $sheetDestination) { destination in
@@ -92,10 +97,10 @@ struct AreaDetailSheet: View {
                     .accessibilityLabel("Close")
                     .accessibilityIdentifier("area-detail-close")
                     Spacer()
-                    offlineDownloadControl
+                    OfflineDownloadControl(area: area, offlineDownloadsStore: offlineDownloadsStore)
                 }
             }
-            areaHeader(routes: loadedRoutes)
+            AreaSummaryHeader(area: area, routes: loadedRoutes)
         }
         .padding(.horizontal, KraxlerDesign.pagePadding)
         .padding(.bottom, 8)
@@ -200,7 +205,7 @@ struct AreaDetailSheet: View {
 
         case .loaded(let routes, let source):
             List {
-                offlineDownloadStatus
+                OfflineDownloadStatus(areaID: area.id, offlineDownloadsStore: offlineDownloadsStore)
 
                 if source == .offline {
                     Label("Showing downloaded routes", systemImage: "arrow.down.circle.fill")
@@ -210,13 +215,14 @@ struct AreaDetailSheet: View {
                 }
 
                 if !filters.isEmpty {
-                    Section { activeFilterChips }
+                    Section { AppliedRouteFilters(filters: $filters) }
                         .listRowBackground(Color.clear)
                 }
 
                 if routes.isEmpty {
                     ContentUnavailableView {
-                        Label("No matching routes", systemImage: "line.3.horizontal.decrease.circle")
+                        Label(
+                            "No matching routes", systemImage: "line.3.horizontal.decrease.circle")
                     } actions: {
                         Button("Clear filters") { filters = RouteFilters() }
                     }
@@ -263,228 +269,6 @@ struct AreaDetailSheet: View {
         }
     }
 
-    private func areaHeader(routes: [ClimbingRoute]?) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(area.name)
-                .font(.largeTitle.bold())
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("area-detail-name")
-
-            if let routes {
-                HStack(spacing: 18) {
-                    metadataItem("\(routes.count) routes", systemImage: "square.stack.3d.up")
-                    if let gradeRange = gradeRange(for: routes) {
-                        metadataItem(gradeRange, systemImage: "chart.bar")
-                    }
-                    if let discipline = dominantDiscipline(in: routes) {
-                        metadataItem(discipline, systemImage: "figure.climbing")
-                    }
-                }
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-            }
-        }
-        .padding(.top, 6)
-    }
-
-    private func metadataItem(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
-            .labelStyle(.titleAndIcon)
-    }
-
-    @ViewBuilder
-    private var offlineDownloadControl: some View {
-        if let offlineDownloadsStore {
-            let operation = offlineDownloadsStore.operation(for: area.id)
-
-            if operation.isInProgress {
-                ProgressView(
-                    value: offlineDownloadsStore.downloadProgress(for: area.id) ?? 0,
-                    total: 1
-                )
-                .frame(width: 46, height: 46)
-                .accessibilityLabel(operation == .removing ? "Removing downloaded area" : "Downloading area")
-                .accessibilityIdentifier("offline-download-progress")
-            } else if offlineDownloadsStore.hasAnyDownload(areaID: area.id) {
-                Menu {
-                    Button(
-                        offlineDownloadsStore.hasIncompleteDownload(areaID: area.id)
-                            ? "Complete download" : "Update download",
-                        systemImage: "arrow.clockwise"
-                    ) {
-                        Task { await offlineDownloadsStore.download(area) }
-                    }
-                    Button("Remove download", systemImage: "trash", role: .destructive) {
-                        Task { await offlineDownloadsStore.remove(areaID: area.id) }
-                    }
-                } label: {
-                    Image(systemName: offlineDownloadsStore.isAvailableOffline(areaID: area.id)
-                        ? "arrow.down.circle.fill" : "exclamationmark.arrow.circlepath")
-                }
-                .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
-                .accessibilityLabel("Offline options")
-                .accessibilityIdentifier("offline-download-menu")
-            } else {
-                Button {
-                    Task { await offlineDownloadsStore.download(area) }
-                } label: {
-                    Image(systemName: "arrow.down")
-                }
-                .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
-                .accessibilityLabel("Download area")
-                .accessibilityIdentifier("offline-download-button")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var offlineDownloadStatus: some View {
-        if let offlineDownloadsStore {
-            switch offlineDownloadsStore.operation(for: area.id) {
-            case .failed(let message):
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .accessibilityIdentifier("offline-download-error")
-            case .downloading:
-                let progress = offlineDownloadsStore.downloadProgress(for: area.id) ?? 0
-                HStack(spacing: 10) {
-                    ProgressView(value: progress, total: 1).frame(width: 72)
-                    Text(progress.formatted(.percent.precision(.fractionLength(0))))
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("offline-download-status")
-            case .removing:
-                Label("Removing download…", systemImage: "trash")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("offline-download-status")
-            case .idle:
-                if offlineDownloadsStore.isAvailableOffline(areaID: area.id) {
-                    Label("Available offline", systemImage: "arrow.down.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("offline-download-status")
-                } else if offlineDownloadsStore.hasIncompleteDownload(areaID: area.id) {
-                    Label("Download incomplete", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .accessibilityIdentifier("offline-download-incomplete")
-                }
-            }
-        }
-    }
-
-    private var activeFilterChips: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                if let discipline = filters.discipline {
-                    filterChip(discipline.displayName) { filters.discipline = nil }
-                }
-                if filters.gradeSystem != nil {
-                    filterChip(gradeFilterTitle) {
-                        filters.gradeSystem = nil
-                        filters.gradeMin = nil
-                        filters.gradeMax = nil
-                    }
-                }
-                ForEach(filters.styles.sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { style in
-                    filterChip(style.displayName) { filters.styles.remove(style) }
-                }
-                if filters.lengthMin != nil || filters.lengthMax != nil {
-                    filterChip(lengthFilterTitle) {
-                        filters.lengthMin = nil
-                        filters.lengthMax = nil
-                    }
-                }
-                if filters.pitchesMin != nil || filters.pitchesMax != nil {
-                    filterChip(pitchFilterTitle) {
-                        filters.pitchesMin = nil
-                        filters.pitchesMax = nil
-                    }
-                }
-            }
-        }
-        .scrollIndicators(.hidden)
-    }
-
-    private func filterChip(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Text(title)
-                Image(systemName: "xmark").font(.caption2.bold())
-            }
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .background(Color(.secondarySystemBackground), in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Remove \(title) filter")
-    }
-
-    private var gradeFilterTitle: String {
-        switch (filters.gradeMin, filters.gradeMax) {
-        case let (.some(minimum), .some(maximum)): "\(minimum)–\(maximum)"
-        case let (.some(minimum), .none): "\(minimum)+"
-        case let (.none, .some(maximum)): "Up to \(maximum)"
-        case (.none, .none): filters.gradeSystem?.displayName ?? "Grade"
-        }
-    }
-
-    private var lengthFilterTitle: String {
-        switch (filters.lengthMin, filters.lengthMax) {
-        case let (.some(minimum), .some(maximum)) where minimum == maximum:
-            "\(minimum) m"
-        case let (.some(minimum), .some(maximum)):
-            "\(minimum)–\(maximum) m"
-        case let (.some(minimum), .none):
-            "\(minimum)+ m"
-        case let (.none, .some(maximum)):
-            "Up to \(maximum) m"
-        case (.none, .none):
-            "Length"
-        }
-    }
-
-    private var pitchFilterTitle: String {
-        switch (filters.pitchesMin, filters.pitchesMax) {
-        case let (.some(minimum), .some(maximum)) where minimum == maximum:
-            "\(minimum) \(minimum == 1 ? "pitch" : "pitches")"
-        case let (.some(minimum), .some(maximum)):
-            "\(minimum)–\(maximum) pitches"
-        case let (.some(minimum), .none):
-            "\(minimum)+ pitches"
-        case let (.none, .some(maximum)):
-            "Up to \(maximum) \(maximum == 1 ? "pitch" : "pitches")"
-        case (.none, .none):
-            "Pitches"
-        }
-    }
-
-    private func gradeRange(for routes: [ClimbingRoute]) -> String? {
-        guard
-            let easiest = routes.min(by: { $0.grade.rank < $1.grade.rank }),
-            let hardest = routes.max(by: { $0.grade.rank < $1.grade.rank })
-        else { return nil }
-
-        return easiest.grade.value == hardest.grade.value
-            ? easiest.grade.value : "\(easiest.grade.value)–\(hardest.grade.value)"
-    }
-
-    private func dominantDiscipline(in routes: [ClimbingRoute]) -> String? {
-        let discipline = Dictionary(grouping: routes, by: \.discipline)
-            .max(by: { $0.value.count < $1.value.count })?.key
-        guard let discipline else { return nil }
-        return switch discipline {
-        case .sport: "Mostly sport"
-        case .trad: "Mostly trad"
-        case .bouldering: "Mostly bouldering"
-        }
-    }
-
     private func loadRoutes() async {
         routeState = .loading
         do {
@@ -513,8 +297,8 @@ private struct RouteRequestKey: Hashable {
     let connectionRevision: Int
 }
 
-private extension ClimbingArea.AreaType {
-    var displayName: String {
+extension ClimbingArea.AreaType {
+    fileprivate var displayName: String {
         switch self {
         case .region: "Climbing region"
         case .climbingArea: "Climbing area"

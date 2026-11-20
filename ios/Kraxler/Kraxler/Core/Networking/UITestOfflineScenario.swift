@@ -13,7 +13,7 @@ enum UITestOfflineScenario {
                 try await repository.download(area)
             }
             connectivity.update(isConnected: false)
-            try await Task.sleep(for: .seconds(30))
+            try await Task.sleep(for: .seconds(40))
             connectivity.update(isConnected: true)
         } catch is CancellationError {
             return

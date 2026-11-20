@@ -6,7 +6,10 @@ final class OfflineIndicatorTests: XCTestCase {
         continueAfterFailure = false
         for appearance in ["light", "dark"] {
             let app = XCUIApplication()
-            app.launchArguments = ["-ui-test-authenticated", "-ui-test-capture", "-ui-test-offline", "-appAppearance", appearance]
+            app.launchArguments = [
+                "-ui-test-authenticated", "-ui-test-capture", "-ui-test-offline", "-appAppearance",
+                appearance,
+            ]
             app.launch()
             XCTAssertTrue(app.buttons["map-search-button"].waitForExistence(timeout: 10))
             let indicator = app.descendants(matching: .any)["map-offline-indicator"].firstMatch
@@ -36,11 +39,28 @@ final class OfflineIndicatorTests: XCTestCase {
             XCTAssertTrue(app.staticTexts["offline-routes-indicator"].waitForExistence(timeout: 3))
             route.tap()
             XCTAssertTrue(app.staticTexts["route-detail-name"].waitForExistence(timeout: 5))
+            let localImage = app.images.matching(
+                NSPredicate(format: "value == %@", "Available offline")
+            ).firstMatch
+            for _ in 0..<3 {
+                if localImage.exists && localImage.isHittable { break }
+                app.scrollViews.firstMatch.swipeUp()
+            }
+            XCTAssertTrue(localImage.waitForExistence(timeout: 5))
+            XCTAssertTrue(localImage.isHittable)
+            XCTAssertFalse(app.staticTexts["Topo unavailable"].exists)
+            let photo = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            photo.name = "\(appearance)-downloaded-topo-from-disk"
+            photo.lifetime = .keepAlways
+            add(photo)
             let cardBack = app.buttons["area-route-back"]
-            if cardBack.exists { cardBack.tap() }
-            else { app.navigationBars.buttons.firstMatch.tap() }
+            if cardBack.exists {
+                cardBack.tap()
+            } else {
+                app.navigationBars.buttons.firstMatch.tap()
+            }
             app.buttons["area-detail-close"].tap()
-            XCTAssertTrue(indicator.waitForNonExistence(timeout: 15))
+            XCTAssertTrue(indicator.waitForNonExistence(timeout: 25))
             XCTAssertFalse(app.staticTexts["Areas unavailable"].exists)
             app.terminate()
         }

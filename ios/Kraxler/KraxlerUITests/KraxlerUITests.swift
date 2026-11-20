@@ -15,10 +15,23 @@ final class KraxlerUITests: XCTestCase {
     @MainActor
     func testMapLoadsAreasFromAPI() throws {
         let app = XCUIApplication()
-        app.launchArguments.append("-ui-test-authenticated")
+        app.launchArguments = ["-ui-test-authenticated", "-ui-test-capture"]
         app.launch()
 
         XCTAssertTrue(app.staticTexts["Kraxler"].waitForExistence(timeout: 10))
+        // Focus a known climbing area so the test does not depend on the simulator's location.
+        app.buttons["map-search-button"].tap()
+        let search = app.textFields["map-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("cuvier\n")
+        let area = app.buttons["search-area-cuvier"]
+        XCTAssertTrue(area.waitForExistence(timeout: 5))
+        area.tap()
+        let close = app.buttons["area-detail-close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
         XCTAssertTrue(
             app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier BEGINSWITH 'map-area-'"))

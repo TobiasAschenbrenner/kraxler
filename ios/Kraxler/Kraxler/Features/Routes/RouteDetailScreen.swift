@@ -1,4 +1,3 @@
-import MapboxMaps
 import SwiftUI
 
 struct RouteDetailScreen: View {
@@ -49,17 +48,22 @@ struct RouteDetailScreen: View {
     var body: some View {
         content
             .toolbarBackground(.hidden, for: .navigationBar)
-            .task(id: RouteContentRequestKey(routeID: routeID, connectionRevision: climbingRepository.connectionRevision)) {
+            .task(
+                id: RouteContentRequestKey(
+                    routeID: routeID, connectionRevision: climbingRepository.connectionRevision)
+            ) {
                 guard loadsRemoteRoute else {
                     return
                 }
 
                 await loadRoute()
             }
-            .task(id: PersonalRouteRequestKey(
-                routeID: routeID,
-                accountID: authSession.account?.id
-            )) {
+            .task(
+                id: PersonalRouteRequestKey(
+                    routeID: routeID,
+                    accountID: authSession.account?.id
+                )
+            ) {
                 await loadPersonalRouteState()
             }
     }
@@ -72,7 +76,10 @@ struct RouteDetailScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         case .loaded(let route, let source):
-            RouteDetailContent(route: route, source: source, localTopoURLs: climbingRepository.localTopoURLs(for: route)) {
+            RouteDetailContent(
+                route: route, source: source,
+                localTopoURLs: climbingRepository.localTopoURLs(for: route)
+            ) {
                 personalRouteActions(for: route)
             }
 
@@ -98,73 +105,22 @@ struct RouteDetailScreen: View {
     @ViewBuilder
     private func personalRouteActions(for route: ClimbingRoute) -> some View {
         if personalRoutesStore != nil {
-            HStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    personalRouteButton(
-                        title: personalRouteState.isSaved ? "Saved" : "Save",
-                        systemImage: personalRouteState.isSaved
-                            ? "bookmark.fill"
-                            : "bookmark",
-                        isActive: personalRouteState.isSaved,
-                        color: KraxlerDesign.accent
-                    ) {
-                        await updatePersonalRoute(
-                            route: route,
-                            isSaved: !personalRouteState.isSaved,
-                            isTicked: personalRouteState.isTicked
-                        )
-                    }
-                    .accessibilityIdentifier("route-save-button")
-
-                    personalRouteButton(
-                        title: personalRouteState.isTicked ? "Ticked" : "Tick",
-                        systemImage: personalRouteState.isTicked
-                            ? "checkmark.circle.fill"
-                            : "checkmark.circle",
-                        isActive: personalRouteState.isTicked,
-                        color: KraxlerDesign.accent
-                    ) {
-                        await updatePersonalRoute(
-                            route: route,
-                            isSaved: personalRouteState.isSaved,
-                            isTicked: !personalRouteState.isTicked
-                        )
-                    }
-                    .accessibilityIdentifier("route-tick-button")
+            PersonalRouteActions(
+                state: personalRouteState,
+                isUpdating: isUpdatingPersonalRoute,
+                errorMessage: personalRouteErrorMessage,
+                onSave: {
+                    await updatePersonalRoute(
+                        route: route, isSaved: !personalRouteState.isSaved,
+                        isTicked: personalRouteState.isTicked)
+                },
+                onTick: {
+                    await updatePersonalRoute(
+                        route: route, isSaved: personalRouteState.isSaved,
+                        isTicked: !personalRouteState.isTicked)
                 }
-
-                if let personalRouteErrorMessage {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundStyle(KraxlerDesign.warning)
-                        .accessibilityLabel(personalRouteErrorMessage)
-                        .accessibilityIdentifier("personal-route-error")
-                }
-            }
-        }
-    }
-
-    private func personalRouteButton(
-        title: String,
-        systemImage: String,
-        isActive: Bool,
-        color: Color,
-        action: @escaping () async -> Void
-    ) -> some View {
-        Button {
-            Task {
-                await action()
-            }
-        } label: {
-            Image(systemName: systemImage)
-        }
-        .buttonStyle(
-            KraxlerIconButtonStyle(
-                foregroundStyle: isActive ? color : .secondary
             )
-        )
-        .accessibilityLabel(title)
-        .accessibilityValue(isActive ? "Selected" : "Not selected")
-        .disabled(isUpdatingPersonalRoute)
+        }
     }
 
     private func loadRoute() async {
@@ -181,12 +137,18 @@ struct RouteDetailScreen: View {
             return
         } catch ClimbingRepositoryError.notAvailableOffline {
             guard !Task.isCancelled else { return }
-            if case .loaded = previousState { routeState = previousState }
-            else { routeState = .notAvailableOffline }
+            if case .loaded = previousState {
+                routeState = previousState
+            } else {
+                routeState = .notAvailableOffline
+            }
         } catch {
             guard !Task.isCancelled else { return }
-            if case .loaded = previousState { routeState = previousState }
-            else { routeState = .failed("The route details could not be loaded.") }
+            if case .loaded = previousState {
+                routeState = previousState
+            } else {
+                routeState = .failed("The route details could not be loaded.")
+            }
         }
     }
 
@@ -255,293 +217,6 @@ private struct PersonalRouteRequestKey: Hashable {
     let routeID: String
     let accountID: String?
 }
-
-private struct RouteDetailContent<Actions: View>: View {
-    let route: ClimbingRoute
-    let source: ClimbingContentSource
-    let localTopoURLs: [String: URL]
-    let actions: Actions
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    init(
-        route: ClimbingRoute,
-        source: ClimbingContentSource,
-        localTopoURLs: [String: URL] = [:],
-        @ViewBuilder actions: () -> Actions
-    ) {
-        self.route = route
-        self.source = source
-        self.localTopoURLs = localTopoURLs
-        self.actions = actions()
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                mapHero
-                routeHeader
-                facts
-
-                if let topos = route.topos, !topos.isEmpty {
-                    section("Route topo") {
-                        ForEach(topos) { topo in
-                            RouteTopoCard(topo: topo, localImageURL: localTopoURLs[topo.id])
-                        }
-                    }
-                }
-
-                if !route.styles.isEmpty {
-                    styles
-                }
-
-                if let description = route.description, !description.isEmpty {
-                    section("Description") {
-                        Text(description)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .accessibilityIdentifier("route-detail-description")
-                    }
-                }
-            }
-            .padding(.horizontal, KraxlerDesign.pagePadding)
-            .padding(.bottom, 32)
-        }
-        .background(KraxlerScreenBackground())
-        .ignoresSafeArea(edges: .top)
-        .accessibilityIdentifier("route-detail-screen")
-    }
-
-    private var mapHero: some View {
-        MapboxMaps.Map(
-            initialViewport: .camera(
-                center: route.location.coordinate,
-                zoom: 16
-            )
-        ) {
-            MapViewAnnotation(coordinate: route.location.coordinate) {
-                Circle()
-                    .fill(KraxlerDesign.accent)
-                    .frame(width: 18, height: 18)
-                    .overlay {
-                        Circle().stroke(.white, lineWidth: 3)
-                    }
-                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-                    .accessibilityHidden(true)
-            }
-            .allowHitTesting(false)
-        }
-        .mapStyle(mapStyle)
-        .gestureOptions(staticMapGestureOptions)
-        .ornamentOptions(staticMapOrnamentOptions)
-        .frame(height: 280)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .containerRelativeFrame(.horizontal)
-        .padding(.horizontal, -KraxlerDesign.pagePadding)
-        .overlay(alignment: .bottomTrailing) {
-            if source == .offline {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(KraxlerDesign.accent)
-                    .padding(12)
-                    .kraxlerGlassSurface(cornerRadius: 24)
-                    .padding(16)
-                    .accessibilityLabel("Available offline")
-                    .accessibilityIdentifier("offline-route-indicator")
-            }
-        }
-    }
-
-    private var mapStyle: MapStyle {
-        .standard(
-            theme: .faded,
-            lightPreset: colorScheme == .dark ? .night : .day,
-            showPointOfInterestLabels: false,
-            showTransitLabels: false,
-            showPlaceLabels: false,
-            showRoadLabels: true,
-            show3dObjects: false
-        )
-    }
-
-    private var staticMapGestureOptions: GestureOptions {
-        GestureOptions(
-            panEnabled: false,
-            pinchEnabled: false,
-            rotateEnabled: false,
-            simultaneousRotateAndPinchZoomEnabled: false,
-            pinchZoomEnabled: false,
-            pinchPanEnabled: false,
-            pitchEnabled: false,
-            doubleTapToZoomInEnabled: false,
-            doubleTouchToZoomOutEnabled: false,
-            quickZoomEnabled: false
-        )
-    }
-
-    private var staticMapOrnamentOptions: OrnamentOptions {
-        OrnamentOptions(
-            scaleBar: ScaleBarViewOptions(visibility: .hidden),
-            compass: CompassViewOptions(visibility: .hidden),
-            logo: LogoViewOptions(
-                position: .bottomLeading,
-                margins: CGPoint(x: 12, y: 10)
-            ),
-            attributionButton: AttributionButtonOptions(
-                position: .bottomTrailing,
-                margins: CGPoint(x: 12, y: 10),
-                tintColor: .label
-            )
-        )
-    }
-
-    private var routeHeader: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(route.name)
-                .font(.largeTitle.bold())
-                .accessibilityIdentifier("route-detail-name")
-
-            HStack(spacing: 8) {
-                Text(route.grade.value)
-                    .font(.title3.bold().monospacedDigit())
-                    .foregroundStyle(KraxlerDesign.accent)
-                    .accessibilityIdentifier("route-detail-grade")
-
-                Text(route.discipline.displayName)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("route-detail-discipline")
-
-                Spacer(minLength: 12)
-                actions
-            }
-        }
-    }
-
-    private var facts: some View {
-        HStack(spacing: 0) {
-            fact(
-                title: "Grade system",
-                value: route.grade.system.displayName,
-                systemImage: "chart.bar"
-            )
-
-            if let lengthMeters = route.lengthMeters {
-                Divider().frame(height: 38)
-                fact(
-                    title: "Length",
-                    value: "\(lengthMeters.formatted()) m",
-                    systemImage: "ruler"
-                )
-            }
-
-            if let pitches = route.pitches {
-                Divider().frame(height: 38)
-                fact(
-                    title: "Pitches",
-                    value: pitches.formatted(),
-                    systemImage: "arrow.up.right"
-                )
-            }
-        }
-        .padding(.vertical, 14)
-        .background(
-            Color(.secondarySystemBackground),
-            in: RoundedRectangle(cornerRadius: KraxlerDesign.compactRadius)
-        )
-    }
-
-    private var styles: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                ForEach(route.styles, id: \.self) { style in
-                    Text(style.displayName)
-                        .font(.subheadline.weight(.medium))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Color(.secondarySystemBackground),
-                            in: Capsule()
-                        )
-                    }
-                }
-            }
-        .scrollIndicators(.hidden)
-        .accessibilityIdentifier("route-detail-styles")
-    }
-
-    private func fact(
-        title: String,
-        value: String,
-        systemImage: String
-    ) -> some View {
-        VStack(spacing: 5) {
-            Label(value, systemImage: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(KraxlerDesign.accent)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity)
-    }
-
-    private func section<Content: View>(
-        _ title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.headline)
-            content()
-        }
-    }
-}
-
-#if DEBUG
-extension ClimbingRoute {
-    static let routeDetailFixture = ClimbingRoute(
-        id: "route-detail-fixture",
-        areaId: "bas-cuvier",
-        name: "La Marie Rose",
-        location: GeoJSONPoint(
-            type: "Point",
-            coordinates: [2.63823, 48.44704]
-        ),
-        discipline: .bouldering,
-        grade: Grade(system: .fontainebleau, value: "6A", rank: 22),
-        styles: [.overhang],
-        lengthMeters: 5,
-        pitches: 1,
-        description: "A historic, slightly overhanging problem with polished holds."
-    )
-}
-
-#Preview("Route details") {
-    NavigationStack {
-        RouteDetailScreen(
-            routeID: ClimbingRoute.routeDetailFixture.id,
-            initialRoute: .routeDetailFixture,
-            loadsRemoteRoute: false
-        )
-    }
-    .environment(AuthSession())
-}
-
-#Preview("Loading error") {
-    NavigationStack {
-        RouteDetailScreen(
-            routeID: "missing-route",
-            apiClient: APIClient(baseURL: URL(string: "http://localhost:1")!)
-        )
-    }
-    .environment(AuthSession())
-}
-#endif
 
 private struct RouteContentRequestKey: Hashable {
     let routeID: String

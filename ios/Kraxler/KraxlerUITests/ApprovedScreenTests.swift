@@ -28,10 +28,15 @@ final class ApprovedScreenTests: XCTestCase {
 
                 let passwordField = app.secureTextFields["authentication-password"].firstMatch
                 passwordField.tap()
-                if app.buttons["Fill Strong Password"].waitForExistence(timeout: 2) {
-                    app.buttons["Close"].tap()
-                }
+                dismissPasswordSuggestion(in: app, timeout: 6)
                 passwordField.typeText("a sample passphrase")
+                // The credential provider can arrive after the first keyboard event.
+                if dismissPasswordSuggestion(in: app, timeout: 1) {
+                    passwordField.tap()
+                    passwordField.typeText("a sample passphrase")
+                }
+                expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: submitButton)
+                waitForExpectations(timeout: 5)
                 XCTAssertTrue(submitButton.isEnabled)
                 passwordField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                     .press(
@@ -116,6 +121,16 @@ final class ApprovedScreenTests: XCTestCase {
             capture("\(appearance)-filters")
             app.terminate()
         }
+    }
+
+    @MainActor
+    @discardableResult
+    private func dismissPasswordSuggestion(in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let suggestion = app.buttons["GenerateStrongPasswordButton"]
+        guard suggestion.waitForExistence(timeout: timeout) else { return false }
+        app.buttons["Close"].tap()
+        XCTAssertTrue(suggestion.waitForNonExistence(timeout: 5))
+        return true
     }
 
     @MainActor

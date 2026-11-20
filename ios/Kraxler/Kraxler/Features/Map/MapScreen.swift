@@ -118,9 +118,19 @@ struct MapScreen: View {
                 }
             }
 
-            mapHeader
+            MapHeader(
+                scale: mapScale,
+                locationIcon: locationControlIcon,
+                locationLabel: locationControlAccessibilityLabel,
+                locationIdentifier: locationAuthorization.isAuthorized
+                    ? "map-user-location-button" : "map-location-permission-button",
+                onSearch: { isSearchPresented = true },
+                onLocate: handleLocationControlTapped
+            )
 
-            statusOverlay
+            MapLoadStatusView(status: model.loadStatus) {
+                Task { await model.loadAreas(in: requestedBounds, force: true) }
+            }
         }
         .overlay(alignment: .bottom) {
             if climbingRepository.showsOfflineIndicator {
@@ -135,7 +145,10 @@ struct MapScreen: View {
                     .padding(.bottom, 10)
             }
         }
-        .task(id: MapRequestKey(bounds: requestedBounds, connectionRevision: climbingRepository.connectionRevision)) {
+        .task(
+            id: MapRequestKey(
+                bounds: requestedBounds, connectionRevision: climbingRepository.connectionRevision)
+        ) {
             guard loadsRemoteAreas else {
                 return
             }
@@ -176,10 +189,13 @@ struct MapScreen: View {
         } message: {
             Text("Allow location access in Settings.")
         }
-        .fullScreenCover(item: $sheetDestination, onDismiss: {
-            selectedAreaID = nil
-            presentPendingAreaFromSearch()
-        }) { destination in
+        .fullScreenCover(
+            item: $sheetDestination,
+            onDismiss: {
+                selectedAreaID = nil
+                presentPendingAreaFromSearch()
+            }
+        ) { destination in
             switch destination {
             case .area(let area):
                 AreaDetailSheet(
@@ -190,9 +206,12 @@ struct MapScreen: View {
                 )
             }
         }
-        .fullScreenCover(isPresented: $isSearchPresented, onDismiss: {
-            presentPendingAreaFromSearch()
-        }) {
+        .fullScreenCover(
+            isPresented: $isSearchPresented,
+            onDismiss: {
+                presentPendingAreaFromSearch()
+            }
+        ) {
             MapSearchSheet(
                 climbingRepository: climbingRepository,
                 personalRoutesStore: personalRoutesStore
@@ -235,114 +254,6 @@ struct MapScreen: View {
                 tintColor: .label
             )
         )
-    }
-
-    @ViewBuilder
-    private var locationControl: some View {
-        Button {
-            handleLocationControlTapped()
-        } label: {
-            Image(systemName: locationControlIcon)
-        }
-        .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
-        .accessibilityLabel(locationControlAccessibilityLabel)
-        .accessibilityIdentifier(locationAuthorization.isAuthorized
-            ? "map-user-location-button"
-            : "map-location-permission-button")
-    }
-
-    private var mapHeader: some View {
-        HStack(alignment: .top, spacing: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 9) {
-                    Text("Kraxler")
-                        .font(.system(.title, design: .rounded, weight: .bold))
-
-                    KraxlerBrandMark(size: 38)
-                }
-
-                CompactMapScaleView(scale: mapScale)
-            }
-            .padding(.top, 8)
-
-            Spacer()
-
-            GlassEffectContainer(spacing: 12) {
-                VStack(spacing: 12) {
-                    Button {
-                        isSearchPresented = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
-                    .buttonStyle(KraxlerIconButtonStyle())
-                    .accessibilityLabel("Search climbing areas and routes")
-                    .accessibilityIdentifier("map-search-button")
-
-                    locationControl
-                }
-            }
-        }
-        .padding(.horizontal, KraxlerDesign.pagePadding)
-        .padding(.top, 8)
-    }
-
-    @ViewBuilder
-    private var statusOverlay: some View {
-        switch model.loadStatus {
-        case .idle:
-            EmptyView()
-
-        case .loaded:
-            EmptyView()
-
-        case .loading:
-            statusPill {
-                ProgressView()
-                Text("Loading areas")
-            }
-
-        case .failed(let message):
-            statusCard {
-                VStack(spacing: 10) {
-                    Label("Areas unavailable", systemImage: "wifi.exclamationmark")
-                        .font(.headline)
-
-                    Text(message)
-                        .font(.subheadline)
-                        .multilineTextAlignment(.center)
-
-                    Button("Try again") {
-                        Task {
-                            await model.loadAreas(in: requestedBounds, force: true)
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
-        }
-    }
-
-    private func statusCard<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        content()
-            .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal, 32)
-            .padding(.top, 156)
-    }
-
-    private func statusPill<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        HStack(spacing: 8) {
-            content()
-        }
-        .font(.caption.weight(.semibold))
-        .padding(.horizontal, 13)
-        .frame(minHeight: 38)
-        .kraxlerGlassSurface(cornerRadius: 19)
-        .padding(.top, 156)
     }
 
     private func focusMap(on area: ClimbingArea) {
@@ -466,67 +377,8 @@ struct MapScreen: View {
     }
 }
 
-nonisolated struct CompactMapScale: Equatable, Sendable {
-    let distanceMeters: Double
-    let width: CGFloat
-
-    init(
-        latitude: CLLocationDegrees,
-        zoom: CGFloat,
-        maximumWidth: CGFloat = 120
-    ) {
-        let metersPerPoint = Projection.metersPerPoint(
-            for: latitude,
-            zoom: zoom
-        )
-        let maximumDistance = max(metersPerPoint * Double(maximumWidth), 1)
-        let magnitude = pow(10, floor(log10(maximumDistance)))
-        let normalizedDistance = maximumDistance / magnitude
-        let factor = [5.0, 2.5, 2.0, 1.0]
-            .first(where: { $0 <= normalizedDistance }) ?? 1
-        let distance = factor * magnitude
-
-        distanceMeters = distance
-        width = min(maximumWidth, CGFloat(distance / metersPerPoint))
-    }
-
-    var label: String {
-        if distanceMeters >= 1_000 {
-            let kilometers = distanceMeters / 1_000
-            return kilometers.rounded() == kilometers
-                ? "\(Int(kilometers)) km"
-                : "\(kilometers.formatted(.number.precision(.fractionLength(1)))) km"
-        }
-
-        return "\(Int(distanceMeters.rounded())) m"
-    }
-}
-
-private struct CompactMapScaleView: View {
-    let scale: CompactMapScale
-
-    var body: some View {
-        VStack(spacing: 2) {
-            HStack {
-                Text("0")
-                Spacer(minLength: 8)
-                Text(scale.label)
-            }
-
-            Capsule()
-                .fill(.primary)
-                .frame(height: 2)
-        }
-        .font(.caption2.monospacedDigit().weight(.semibold))
-        .frame(width: scale.width)
-        .shadow(color: .black.opacity(0.45), radius: 2, y: 1)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Map scale \(scale.label)")
-    }
-}
-
-private extension ClimbingArea.AreaType {
-    var annotationPriority: Int {
+extension ClimbingArea.AreaType {
+    fileprivate var annotationPriority: Int {
         switch self {
         case .region:
             0
@@ -536,65 +388,6 @@ private extension ClimbingArea.AreaType {
             1
         }
     }
-}
-
-private struct MapAreaMarker: View {
-    let isSelected: Bool
-
-    var body: some View {
-        ZStack {
-            if isSelected {
-                Circle()
-                    .fill(KraxlerDesign.accent.opacity(0.22))
-                    .frame(width: 32, height: 32)
-
-                Circle()
-                    .stroke(KraxlerDesign.accent, lineWidth: 3)
-                    .frame(width: 22, height: 22)
-            }
-
-            Circle()
-                .fill(KraxlerDesign.accent)
-                .frame(width: isSelected ? 12 : 11, height: isSelected ? 12 : 11)
-                .overlay {
-                    Circle()
-                        .stroke(.white, lineWidth: 2)
-                }
-                .shadow(color: .black.opacity(0.38), radius: 4, y: 1)
-        }
-        .frame(width: 34, height: 34)
-        .animation(.snappy(duration: 0.22), value: isSelected)
-    }
-}
-
-private extension ClimbingArea {
-    static let basCuvierPreview = ClimbingArea(
-        id: "bas-cuvier",
-        name: "Bas Cuvier",
-        type: .climbingArea,
-        location: GeoJSONPoint(type: "Point", coordinates: [2.63823, 48.44704])
-    )
-
-    static let roethelfelsPreview = ClimbingArea(
-        id: "roethelfels",
-        name: "Röthelfels",
-        type: .climbingArea,
-        location: GeoJSONPoint(type: "Point", coordinates: [11.24633, 49.74745])
-    )
-}
-
-#Preview("Areas loaded") {
-    MapScreen(
-        initialAreas: [.basCuvierPreview, .roethelfelsPreview],
-        loadsRemoteAreas: false
-    )
-}
-
-#Preview("Loading error") {
-    MapScreen(
-        initialErrorMessage: "The preview API is unavailable.",
-        loadsRemoteAreas: false
-    )
 }
 
 private struct MapRequestKey: Hashable {

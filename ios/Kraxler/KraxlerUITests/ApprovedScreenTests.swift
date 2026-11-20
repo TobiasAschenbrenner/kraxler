@@ -100,7 +100,7 @@ final class ApprovedScreenTests: XCTestCase {
 
             app.tabBars.buttons["Map"].tap()
             app.buttons["map-search-button"].tap()
-            let searchField = app.searchFields.firstMatch
+            let searchField = app.textFields["map-search-field"]
             XCTAssertTrue(searchField.waitForExistence(timeout: 5))
             searchField.tap()
             searchField.typeText("cuvier\n")

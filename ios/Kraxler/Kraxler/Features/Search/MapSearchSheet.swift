@@ -61,27 +61,50 @@ struct MapSearchSheet: View {
 
     private var navigationContent: some View {
         NavigationStack {
-            content
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle("Search")
-                .navigationBarTitleDisplayMode(.inline)
-                .searchable(
-                    text: $query,
-                    placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: "Area or route name"
-                )
-                .searchFocused($isSearchFocused)
-                .onSubmit(of: .search) { isSearchFocused = false }
-                .toolbarBackground(.hidden, for: .navigationBar)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close", systemImage: "xmark") {
-                            dismiss()
-                        }
-                    }
-                }
+            VStack(spacing: 0) {
+                searchHeader
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .toolbar(.hidden, for: .navigationBar)
         }
         .containerBackground(.clear, for: .navigation)
+    }
+
+    private var searchHeader: some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .accessibilityHidden(true)
+                    TextField("Area or route name", text: $query)
+                        .textFieldStyle(.plain)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.search)
+                        .focused($isSearchFocused)
+                        .onSubmit { isSearchFocused = false }
+                        .accessibilityLabel("Search areas and routes")
+                        .accessibilityIdentifier("map-search-field")
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: KraxlerDesign.controlSize)
+                .contentShape(Capsule())
+                .onTapGesture { isSearchFocused = true }
+                .glassEffect(.regular.interactive(), in: .capsule)
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(KraxlerIconButtonStyle(foregroundStyle: KraxlerDesign.accent))
+                .accessibilityLabel("Close search")
+                .accessibilityIdentifier("map-search-close")
+            }
+        }
+        .padding(.horizontal, KraxlerDesign.pagePadding)
+        .padding(.bottom, 12)
     }
 
     private var dragHandle: some View {
@@ -182,6 +205,7 @@ struct MapSearchSheet: View {
                                     initialRoute: route,
                                     personalRoutesStore: personalRoutesStore
                                 )
+                                .toolbar(.visible, for: .navigationBar)
                             } label: {
                                 SearchRouteRow(route: route)
                             }

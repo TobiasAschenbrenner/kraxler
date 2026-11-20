@@ -78,6 +78,23 @@ struct LibraryStateSafetyTests {
     }
 
     @Test
+    func failedRemovalRestoresTheOriginalAreaGrouping() async throws {
+        let store = makeStore()
+        let save = Task {
+            try await store.update(route: Self.route, areaName: "Cuvier", climbingAreaID: "parent", isSaved: true, isTicked: false)
+        }
+        await waitForRequests(1)
+        DeferredLibraryProtocol.complete(body: Self.savedState)
+        _ = try await save.value
+        let remove = Task { try await store.update(route: Self.route, isSaved: false, isTicked: false) }
+        await waitForRequests(1)
+        DeferredLibraryProtocol.complete(body: "{}", status: 500)
+        await #expect(throws: APIClientError.httpStatus(500)) { try await remove.value }
+        #expect(store.routes.first?.areaName == "Cuvier")
+        #expect(store.routes.first?.climbingAreaId == "parent")
+    }
+
+    @Test
     func optimisticSaveRetainsTheParentAreaIdentity() async throws {
         let store = makeStore()
         let save = Task {

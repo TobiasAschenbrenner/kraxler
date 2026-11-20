@@ -85,13 +85,16 @@ final class PersonalRoutesStore {
     ) async throws -> PersonalRouteState {
         let currentSession = sessionID
         let previousState = statesByRouteID[route.id] ?? .empty(routeID: route.id)
+        let previousRoute = routes.first(where: { $0.routeId == route.id })
+        let resolvedAreaName = areaName ?? previousRoute?.areaName
+        let resolvedClimbingAreaID = climbingAreaID ?? previousRoute?.climbingAreaId
         let optimisticState = PersonalRouteState(
             routeId: route.id,
             isSaved: isSaved,
             isTicked: isTicked,
             tickedAt: isTicked ? previousState.tickedAt : nil
         )
-        apply(optimisticState, to: route, areaName: areaName, climbingAreaID: climbingAreaID)
+        apply(optimisticState, to: route, areaName: resolvedAreaName, climbingAreaID: resolvedClimbingAreaID)
 
         do {
             let confirmedState = try await apiClient.updatePersonalRouteState(
@@ -101,12 +104,12 @@ final class PersonalRoutesStore {
             )
             try Task.checkCancellation()
             guard sessionID == currentSession else { throw CancellationError() }
-            apply(confirmedState, to: route, areaName: areaName, climbingAreaID: climbingAreaID)
+            apply(confirmedState, to: route, areaName: resolvedAreaName, climbingAreaID: resolvedClimbingAreaID)
             loadState = .loaded
             return confirmedState
         } catch {
             guard sessionID == currentSession else { throw CancellationError() }
-            apply(previousState, to: route, areaName: areaName, climbingAreaID: climbingAreaID)
+            apply(previousState, to: route, areaName: resolvedAreaName, climbingAreaID: resolvedClimbingAreaID)
             throw error
         }
     }

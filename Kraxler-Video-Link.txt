@@ -1,0 +1,16 @@
+Kraxler - App demonstration
+SE_47 Mobile App Development
+Tobias Aschenbrenner
+
+Screen recording of Kraxler running on a physical iPhone.
+
+Video page:
+https://github.com/TobiasAschenbrenner/kraxler/releases/tag/demo-video-2026-11-20
+
+Direct video download (MP4, approximately 258 MB):
+https://github.com/TobiasAschenbrenner/kraxler/releases/download/demo-video-2026-11-20/Kraxler-iPhone-Demo.mp4
+
+Download the MP4 and open it in a video player. No GitHub account is required.
+
+Project repository:
+https://github.com/TobiasAschenbrenner/kraxler

@@ -277,13 +277,13 @@ struct AreaDetailSheet: View {
                     filterChip(style.displayName) { filters.styles.remove(style) }
                 }
                 if filters.lengthMin != nil || filters.lengthMax != nil {
-                    filterChip("Length") {
+                    filterChip(lengthFilterTitle) {
                         filters.lengthMin = nil
                         filters.lengthMax = nil
                     }
                 }
                 if filters.pitchesMin != nil || filters.pitchesMax != nil {
-                    filterChip("Pitches") {
+                    filterChip(pitchFilterTitle) {
                         filters.pitchesMin = nil
                         filters.pitchesMax = nil
                     }
@@ -314,6 +314,36 @@ struct AreaDetailSheet: View {
         case let (.some(minimum), .none): "\(minimum)+"
         case let (.none, .some(maximum)): "Up to \(maximum)"
         case (.none, .none): filters.gradeSystem?.displayName ?? "Grade"
+        }
+    }
+
+    private var lengthFilterTitle: String {
+        switch (filters.lengthMin, filters.lengthMax) {
+        case let (.some(minimum), .some(maximum)) where minimum == maximum:
+            "\(minimum) m"
+        case let (.some(minimum), .some(maximum)):
+            "\(minimum)–\(maximum) m"
+        case let (.some(minimum), .none):
+            "\(minimum)+ m"
+        case let (.none, .some(maximum)):
+            "Up to \(maximum) m"
+        case (.none, .none):
+            "Length"
+        }
+    }
+
+    private var pitchFilterTitle: String {
+        switch (filters.pitchesMin, filters.pitchesMax) {
+        case let (.some(minimum), .some(maximum)) where minimum == maximum:
+            "\(minimum) \(minimum == 1 ? "pitch" : "pitches")"
+        case let (.some(minimum), .some(maximum)):
+            "\(minimum)–\(maximum) pitches"
+        case let (.some(minimum), .none):
+            "\(minimum)+ pitches"
+        case let (.none, .some(maximum)):
+            "Up to \(maximum) \(maximum == 1 ? "pitch" : "pitches")"
+        case (.none, .none):
+            "Pitches"
         }
     }
 

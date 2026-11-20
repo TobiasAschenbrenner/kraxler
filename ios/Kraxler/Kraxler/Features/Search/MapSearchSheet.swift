@@ -23,8 +23,9 @@ struct MapSearchSheet: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
-                Color.black.opacity(0.16)
+                Color.clear
                     .ignoresSafeArea()
+                    .contentShape(Rectangle())
                     .onTapGesture { dismiss() }
                     .accessibilityHidden(true)
 

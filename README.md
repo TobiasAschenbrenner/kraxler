@@ -59,19 +59,44 @@ kraxler/
 - Firebase project with Email/Password and Google authentication enabled
 - Mapbox account and public access token
 
+---
+
+## 🔧 Environment Variables
+
+Create these local configuration files with your own values.
+Both files are **ignored by Git**.
+
+### `backend/.env`
+
+```bash
+PORT=3000
+NODE_ENV=development
+
+MONGODB_URI=your_mongodb_connection_string
+FIREBASE_PROJECT_ID=your_firebase_project_id
+```
+
+### `ios/Kraxler/Config/MapboxSecrets.xcconfig`
+
+```text
+MAPBOX_ACCESS_TOKEN = your_public_mapbox_access_token
+```
+
+---
+
+## ▶️ Running the Application
+
 ### Backend
 
 ```bash
 git clone https://github.com/TobiasAschenbrenner/kraxler.git
 cd kraxler/backend
 npm ci
-cp .env.example .env
 ```
 
-Set `MONGODB_URI` and `FIREBASE_PROJECT_ID` in `backend/.env`. Firebase Admin uses
-Application Default Credentials: configure these with `gcloud auth application-default login`
-or a private service-account file referenced by `GOOGLE_APPLICATION_CREDENTIALS`.
-Environment files and service-account credentials must stay out of Git.
+Create the configuration files above. For backend authentication, run
+`gcloud auth application-default login` or set `GOOGLE_APPLICATION_CREDENTIALS`
+to a private service-account file. Then start the API:
 
 ```bash
 npm run seed
@@ -82,15 +107,8 @@ The local API runs at [http://localhost:3000](http://localhost:3000).
 
 ### iOS
 
-Create the Git-ignored `ios/Kraxler/Config/MapboxSecrets.xcconfig`:
-
-```text
-MAPBOX_ACCESS_TOKEN = your_public_mapbox_access_token
-```
-
-The bundled Firebase configuration belongs to the Kraxler project. For your own
-Firebase project, replace `GoogleService-Info.plist` and update the Google Sign-In
-URL scheme in `ios/Kraxler/Kraxler/Info.plist`.
+For your own Firebase project, replace `GoogleService-Info.plist` and update the
+Google Sign-In URL scheme in `ios/Kraxler/Kraxler/Info.plist`.
 
 Open `ios/Kraxler/Kraxler.xcodeproj`, select the **Kraxler** scheme and a simulator,
 then press **⌘R**. Select your development team when running on an iPhone.

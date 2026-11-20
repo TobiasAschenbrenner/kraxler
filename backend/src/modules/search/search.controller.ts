@@ -1,9 +1,10 @@
+import { serializeArea } from "../areas/area.serializer.js";
 import type { RequestHandler } from "express";
 
 import { ApiError } from "../../errors/api-error.js";
 import { AreaModel } from "../areas/area.model.js";
 import { RouteModel } from "../routes/route.model.js";
-import { serializeRoute } from "../routes/route.controller.js";
+import { serializeRoute } from "../routes/route.serializer.js";
 import { parseSearchQuery } from "./search.query.js";
 
 const resultLimit = 10;
@@ -51,12 +52,7 @@ export const searchClimbingContent: RequestHandler = async (
 
     response.json({
       data: {
-        areas: areas.map((area) => ({
-          id: area._id.toString(),
-          name: area.name,
-          type: area.type,
-          location: area.location,
-        })),
+        areas: areas.map(serializeArea),
         routes: routes.map(serializeRoute),
       },
       meta: {

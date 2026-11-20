@@ -28,6 +28,17 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
+  if (typeof error === "object" && error !== null && "type" in error) {
+    if (error.type === "entity.parse.failed") {
+      response.status(400).json({ error: { code: "invalid_json", message: "Use a valid JSON body." } });
+      return;
+    }
+    if (error.type === "entity.too.large") {
+      response.status(413).json({ error: { code: "request_too_large", message: "The request body is too large." } });
+      return;
+    }
+  }
+
   response.status(500).json({
     error: {
       code: "internal_server_error",

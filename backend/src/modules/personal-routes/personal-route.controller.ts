@@ -3,9 +3,9 @@ import { isValidObjectId, Types } from "mongoose";
 import { z } from "zod";
 
 import { ApiError } from "../../errors/api-error.js";
-import { AreaModel } from "../areas/area.model.js";
+import { climbingAreasByRouteAreaId } from "../areas/area-hierarchy.js";
 import { RouteModel } from "../routes/route.model.js";
-import { serializeRoute } from "../routes/route.controller.js";
+import { serializeRoute } from "../routes/route.serializer.js";
 import { PersonalRouteModel } from "./personal-route.model.js";
 
 const personalRouteStateSchema = z
@@ -48,85 +48,6 @@ const serializeState = (
   ...(tickedAt === undefined ? {} : { tickedAt: tickedAt.toISOString() }),
 });
 
-const climbingAreaNamesByRouteAreaId = async (
-  routeAreaIds: Types.ObjectId[],
-): Promise<Map<string, string>> => {
-  const uniqueRouteAreaIds = [
-    ...new Map(routeAreaIds.map((areaId) => [areaId.toString(), areaId])).values(),
-  ];
-  const areasById = new Map<
-    string,
-    {
-      name: string;
-      type: "region" | "climbingArea" | "sector";
-      parentAreaId?: Types.ObjectId;
-    }
-  >();
-  let pendingAreaIds = uniqueRouteAreaIds;
-
-  while (pendingAreaIds.length > 0) {
-    const areas = await AreaModel.find({ _id: { $in: pendingAreaIds } })
-      .select({ name: 1, type: 1, parentAreaId: 1 })
-      .lean()
-      .exec();
-    const nextParentIds = new Map<string, Types.ObjectId>();
-
-    for (const area of areas) {
-      const areaId = area._id.toString();
-      areasById.set(areaId, area);
-
-      if (area.parentAreaId !== undefined) {
-        const parentId = area.parentAreaId.toString();
-
-        if (!areasById.has(parentId)) {
-          nextParentIds.set(parentId, area.parentAreaId);
-        }
-      }
-    }
-
-    pendingAreaIds = [...nextParentIds.values()];
-  }
-
-  return new Map(
-    uniqueRouteAreaIds.flatMap((routeAreaId) => {
-      const routeAreaIdString = routeAreaId.toString();
-      const routeArea = areasById.get(routeAreaIdString);
-
-      if (routeArea === undefined) {
-        return [];
-      }
-
-      let currentArea = routeArea;
-      const visitedAreaIds = new Set<string>();
-
-      while (true) {
-        if (currentArea.type === "climbingArea") {
-          return [[routeAreaIdString, currentArea.name] as const];
-        }
-
-        if (currentArea.parentAreaId === undefined) {
-          return [[routeAreaIdString, routeArea.name] as const];
-        }
-
-        const parentId = currentArea.parentAreaId.toString();
-
-        if (visitedAreaIds.has(parentId)) {
-          return [[routeAreaIdString, routeArea.name] as const];
-        }
-
-        visitedAreaIds.add(parentId);
-        const parentArea = areasById.get(parentId);
-
-        if (parentArea === undefined) {
-          return [[routeAreaIdString, routeArea.name] as const];
-        }
-
-        currentArea = parentArea;
-      }
-    }),
-  );
-};
-
 export const listPersonalRoutes: RequestHandler = async (
   _request,
   response,
@@ -146,7 +67,7 @@ export const listPersonalRoutes: RequestHandler = async (
     const routesById = new Map(
       routes.map((route) => [route._id.toString(), route]),
     );
-    const areaNamesById = await climbingAreaNamesByRouteAreaId(
+    const climbingAreasById = await climbingAreasByRouteAreaId(
       routes.map(({ areaId }) => areaId),
     );
 
@@ -160,7 +81,8 @@ export const listPersonalRoutes: RequestHandler = async (
       return [
         {
           route: serializeRoute(route),
-          areaName: areaNamesById.get(route.areaId.toString()),
+          areaName: climbingAreasById.get(route.areaId.toString())?.name,
+          climbingAreaId: climbingAreasById.get(route.areaId.toString())?.id,
           ...serializeState(
             personalRoute.routeId,
             personalRoute.isSaved,

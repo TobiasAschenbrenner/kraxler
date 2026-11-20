@@ -3,39 +3,9 @@ import { isValidObjectId, Types } from "mongoose";
 
 import { ApiError } from "../../errors/api-error.js";
 import { AreaModel } from "../areas/area.model.js";
-import { RouteModel, type ClimbingRoute } from "./route.model.js";
+import { RouteModel } from "./route.model.js";
+import { serializeRoute } from "./route.serializer.js";
 import { parseRouteFilters, type RouteFilters } from "./route.query.js";
-
-export const serializeRoute = (route: ClimbingRoute & { _id: Types.ObjectId }) => ({
-  id: route._id.toString(),
-  areaId: route.areaId.toString(),
-  name: route.name,
-  location: route.location,
-  discipline: route.discipline,
-  grade: {
-    system: route.grade.system,
-    value: route.grade.value,
-    rank: route.grade.rank,
-  },
-  styles: route.styles,
-  ...(route.lengthMeters === undefined
-    ? {}
-    : { lengthMeters: route.lengthMeters }),
-  ...(route.pitches === undefined ? {} : { pitches: route.pitches }),
-  ...(route.description === undefined
-    ? {}
-    : { description: route.description }),
-  ...(!route.topos?.length ? {} : {
-    topos: route.topos.map((topo) => ({
-      id: topo.id,
-      imageUrl: topo.imageUrl,
-      ...(topo.cloudinaryPublicId ? { cloudinaryPublicId: topo.cloudinaryPublicId } : {}),
-      routeNumber: topo.routeNumber,
-      pixelWidth: topo.pixelWidth,
-      pixelHeight: topo.pixelHeight,
-    })),
-  }),
-});
 
 const buildRouteFilter = (
   areaIds: Types.ObjectId[],

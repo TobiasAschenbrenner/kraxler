@@ -27,6 +27,7 @@ import { RouteModel } from "../src/modules/routes/route.model.js";
 
 let mongoServer: MongoMemoryServer;
 let routeId: Types.ObjectId;
+let climbingAreaId: Types.ObjectId;
 
 const verifyAuthToken: AuthTokenVerifier = async (token) => {
   if (token === "alice-token") {
@@ -90,6 +91,7 @@ beforeEach(async () => {
   });
 
   routeId = route._id;
+  climbingAreaId = cuvier._id;
 });
 
 afterEach(async () => {
@@ -201,6 +203,7 @@ describe("GET /api/v1/me/routes", () => {
         name: "La Marie Rose",
       }),
       areaName: "Cuvier",
+      climbingAreaId: climbingAreaId.toString(),
       routeId: routeId.toString(),
       isSaved: true,
       isTicked: true,
@@ -238,5 +241,26 @@ describe("GET /api/v1/me/routes/:routeId", () => {
       isSaved: false,
       isTicked: false,
     });
+  });
+});
+
+
+describe("library climbing-area identity", () => {
+  it("uses one parent ID for routes in different sectors, even with duplicate area names elsewhere", async () => {
+    const first = await RouteModel.findById(routeId).lean().exec();
+    const secondSector = await AreaModel.create({ name: "Another sector", type: "sector", parentAreaId: climbingAreaId, location: first!.location });
+    const sameNameArea = await AreaModel.create({ name: "Cuvier", type: "climbingArea", location: first!.location });
+    const otherRoutes = await RouteModel.create([
+      { ...first, _id: new Types.ObjectId(), areaId: secondSector._id, name: "Second sector route" },
+      { ...first, _id: new Types.ObjectId(), areaId: sameNameArea._id, name: "Different area route" },
+    ]);
+    await PersonalRouteModel.create([routeId, ...otherRoutes.map((route) => route._id)].map((id) => ({ userId: "alice", routeId: id, isSaved: true })));
+    const response = await authenticated("get", "/api/v1/me/routes");
+    expect(response.status).toBe(200);
+    const entries = response.body.data as { routeId: string; areaName: string; climbingAreaId: string }[];
+    expect(entries.every((entry) => entry.areaName === "Cuvier")).toBe(true);
+    expect(entries.find((entry) => entry.routeId === routeId.toString())?.climbingAreaId).toBe(climbingAreaId.toString());
+    expect(entries.find((entry) => entry.routeId === otherRoutes[0]!._id.toString())?.climbingAreaId).toBe(climbingAreaId.toString());
+    expect(entries.find((entry) => entry.routeId === otherRoutes[1]!._id.toString())?.climbingAreaId).toBe(sameNameArea._id.toString());
   });
 });

@@ -1,3 +1,4 @@
+import { serializeArea } from "./area.serializer.js";
 import type { RequestHandler } from "express";
 
 import { ApiError } from "../../errors/api-error.js";
@@ -49,12 +50,7 @@ export const listAreasInBoundingBox: RequestHandler = async (
       .exec();
 
     response.json({
-      data: areas.map((area) => ({
-        id: area._id.toString(),
-        name: area.name,
-        type: area.type,
-        location: area.location,
-      })),
+      data: areas.map(serializeArea),
       meta: {
         count: areas.length,
       },

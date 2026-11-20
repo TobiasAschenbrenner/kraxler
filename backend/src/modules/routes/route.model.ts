@@ -1,6 +1,7 @@
 import { Schema, Types, model } from "mongoose";
 
-import type { GeoJsonPoint } from "../areas/area.model.js";
+import { geoJsonPointSchema, type GeoJsonPoint } from "../../database/schemas/geojson-point.js";
+
 import { gradeSystems, type GradeSystem } from "./grade.js";
 
 export const routeDisciplines = ["sport", "trad", "bouldering"] as const;
@@ -45,39 +46,6 @@ export interface ClimbingRoute {
   description?: string;
   topos?: RouteTopo[];
 }
-
-const pointSchema = new Schema<GeoJsonPoint>(
-  {
-    type: {
-      type: String,
-      enum: ["Point"],
-      required: true,
-    },
-    coordinates: {
-      type: [Number],
-      required: true,
-      validate: {
-        validator: (coordinates: number[]) => {
-          const [longitude, latitude] = coordinates;
-
-          return (
-            coordinates.length === 2 &&
-            longitude !== undefined &&
-            latitude !== undefined &&
-            Number.isFinite(longitude) &&
-            Number.isFinite(latitude) &&
-            longitude >= -180 &&
-            longitude <= 180 &&
-            latitude >= -90 &&
-            latitude <= 90
-          );
-        },
-        message: "Location must contain a valid longitude and latitude.",
-      },
-    },
-  },
-  { _id: false },
-);
 
 const gradeSchema = new Schema<RouteGrade>(
   {
@@ -142,7 +110,7 @@ const routeSchema = new Schema<ClimbingRoute>(
       required: true,
     },
     location: {
-      type: pointSchema,
+      type: geoJsonPointSchema,
       required: true,
     },
     discipline: {

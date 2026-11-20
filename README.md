@@ -35,6 +35,8 @@ stores climbing content and personal data. Firebase authenticates users, and the
 API verifies their ID tokens before accessing profiles or saved and ticked routes.
 SwiftData stores downloaded climbing content; Mapbox provides maps and offline tiles.
 
+![Kraxler application architecture](docs/images/architecture.png)
+
 ---
 
 ## 📁 Project Structure
@@ -141,6 +143,8 @@ MongoDB stores areas, routes, personal route records and user profiles. Areas fo
 an optional region–climbing area–sector hierarchy. Routes reference an area;
 personal records link Firebase user IDs to saved and ticked routes. GeoJSON points
 and `2dsphere` indexes support map queries.
+
+![Kraxler entity-relationship diagram](docs/images/data-model.png)
 
 ---
 

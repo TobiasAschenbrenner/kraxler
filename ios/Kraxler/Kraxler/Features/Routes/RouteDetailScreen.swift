@@ -72,7 +72,7 @@ struct RouteDetailScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         case .loaded(let route, let source):
-            RouteDetailContent(route: route, source: source) {
+            RouteDetailContent(route: route, source: source, localTopoURLs: climbingRepository.localTopoURLs(for: route)) {
                 personalRouteActions(for: route)
             }
 
@@ -259,6 +259,7 @@ private struct PersonalRouteRequestKey: Hashable {
 private struct RouteDetailContent<Actions: View>: View {
     let route: ClimbingRoute
     let source: ClimbingContentSource
+    let localTopoURLs: [String: URL]
     let actions: Actions
 
     @Environment(\.colorScheme) private var colorScheme
@@ -266,10 +267,12 @@ private struct RouteDetailContent<Actions: View>: View {
     init(
         route: ClimbingRoute,
         source: ClimbingContentSource,
+        localTopoURLs: [String: URL] = [:],
         @ViewBuilder actions: () -> Actions
     ) {
         self.route = route
         self.source = source
+        self.localTopoURLs = localTopoURLs
         self.actions = actions()
     }
 
@@ -283,7 +286,7 @@ private struct RouteDetailContent<Actions: View>: View {
                 if let topos = route.topos, !topos.isEmpty {
                     section("Route topo") {
                         ForEach(topos) { topo in
-                            RouteTopoCard(topo: topo)
+                            RouteTopoCard(topo: topo, localImageURL: localTopoURLs[topo.id])
                         }
                     }
                 }

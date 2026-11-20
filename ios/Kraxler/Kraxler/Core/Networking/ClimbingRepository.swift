@@ -21,6 +21,7 @@ final class ClimbingRepository {
     private let apiClient: APIClient
     private let offlineStore: OfflineClimbingStore?
     private let connectivity: ConnectivityMonitor?
+    private let topoStore: OfflineTopoStore
 
     var isOffline: Bool { connectivity?.isOffline ?? false }
     var connectionRevision: Int { connectivity?.revision ?? 0 }
@@ -29,11 +30,13 @@ final class ClimbingRepository {
     init(
         apiClient: APIClient,
         offlineStore: OfflineClimbingStore? = nil,
-        connectivity: ConnectivityMonitor? = nil
+        connectivity: ConnectivityMonitor? = nil,
+        topoStore: OfflineTopoStore? = nil
     ) {
         self.apiClient = apiClient
         self.offlineStore = offlineStore
         self.connectivity = connectivity
+        self.topoStore = topoStore ?? OfflineTopoStore()
     }
 
     func areas(in bounds: MapBounds) async throws -> ClimbingContentResponse<[ClimbingArea]> {
@@ -139,13 +142,25 @@ final class ClimbingRepository {
     }
 
     @discardableResult
-    func download(_ area: ClimbingArea) async throws -> OfflineAreaManifest {
+    func download(
+        _ area: ClimbingArea,
+        imageProgress: (Double) -> Void = { _ in }
+    ) async throws -> OfflineAreaManifest {
         guard let offlineStore else {
             throw ClimbingRepositoryError.offlineStoreUnavailable
         }
 
         let routes = try await apiClient.routes(for: area.id)
-        try offlineStore.save(area: area, routes: routes)
+        let downloadID = try await topoStore.prepareDownload(routes: routes, progress: imageProgress)
+        do {
+            try Task.checkCancellation()
+            try offlineStore.save(area: area, routes: routes, topoDownloadID: downloadID)
+        } catch {
+            if let downloadID { try? topoStore.remove(downloadID: downloadID) }
+            throw error
+        }
+        topoStore.finishDownload(downloadID)
+        topoStore.pruneDownloads(retaining: Set(try offlineStore.manifests().compactMap(\.topoDownloadID)))
 
         guard let manifest = try offlineStore.manifest(for: area.id) else {
             throw ClimbingRepositoryError.downloadedContentUnavailable
@@ -158,13 +173,31 @@ final class ClimbingRepository {
             throw ClimbingRepositoryError.offlineStoreUnavailable
         }
         try offlineStore.remove(areaID: areaID)
+        topoStore.pruneDownloads(retaining: Set(try offlineStore.manifests().compactMap(\.topoDownloadID)))
+    }
+
+    func hasDownloadedTopos(for manifest: OfflineAreaManifest) -> Bool {
+        guard manifest.dataVersion >= OfflineAreaManifest.currentDataVersion,
+              let routes = try? offlineStore?.routes(for: manifest.id) else { return false }
+        return topoStore.containsImages(for: routes, downloadID: manifest.topoDownloadID)
+    }
+
+    func localTopoURLs(for route: ClimbingRoute) -> [String: URL] {
+        guard let ids = try? offlineStore?.topoDownloadIDs(for: route.id) else { return [:] }
+        var urls: [String: URL] = [:]
+        for topo in route.topos ?? [] {
+            urls[topo.id] = ids.lazy.compactMap { self.topoStore.localURL(for: topo.imageUrl, downloadID: $0) }.first
+        }
+        return urls
     }
 
     func offlineManifests() throws -> [OfflineAreaManifest] {
         guard let offlineStore else {
             return []
         }
-        return try offlineStore.manifests()
+        let manifests = try offlineStore.manifests()
+        topoStore.pruneDownloads(retaining: Set(manifests.compactMap(\.topoDownloadID)))
+        return manifests
     }
 }
 

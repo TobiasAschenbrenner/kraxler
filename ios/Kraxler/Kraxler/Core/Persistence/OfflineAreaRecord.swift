@@ -11,6 +11,7 @@ final class OfflineAreaRecord {
     var downloadedAt: Date
     var refreshedAt: Date
     var dataVersion: Int
+    var topoDownloadID: String? = nil
 
     @Relationship(deleteRule: .cascade, inverse: \OfflineRouteRecord.area)
     var routes: [OfflineRouteRecord]
@@ -20,6 +21,7 @@ final class OfflineAreaRecord {
         downloadedAt: Date,
         refreshedAt: Date,
         dataVersion: Int = OfflineAreaManifest.currentDataVersion,
+        topoDownloadID: String? = nil,
         routes: [OfflineRouteRecord] = []
     ) {
         areaID = area.id
@@ -30,6 +32,7 @@ final class OfflineAreaRecord {
         self.downloadedAt = downloadedAt
         self.refreshedAt = refreshedAt
         self.dataVersion = dataVersion
+        self.topoDownloadID = topoDownloadID
         self.routes = routes
     }
 
@@ -59,14 +62,16 @@ final class OfflineAreaRecord {
             routeCount: routes.count,
             downloadedAt: downloadedAt,
             refreshedAt: refreshedAt,
-            dataVersion: dataVersion
+            dataVersion: dataVersion,
+            topoDownloadID: topoDownloadID
         )
     }
 
     func update(
         with area: ClimbingArea,
         refreshedAt: Date,
-        dataVersion: Int
+        dataVersion: Int,
+        topoDownloadID: String? = nil
     ) {
         name = area.name
         typeRawValue = area.type.rawValue
@@ -74,6 +79,7 @@ final class OfflineAreaRecord {
         latitude = area.location.coordinates[1]
         self.refreshedAt = refreshedAt
         self.dataVersion = dataVersion
+        self.topoDownloadID = topoDownloadID
     }
 }
 

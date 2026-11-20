@@ -4,13 +4,17 @@ import Foundation
 // Deterministic content for UI verification. Release builds never include this transport.
 extension APIClient {
     static func uiTestCapture(authTokenProvider: @escaping AuthTokenProvider) -> APIClient {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [CaptureURLProtocol.self]
         return APIClient(
             baseURL: URL(string: "http://localhost:3000")!,
-            session: URLSession(configuration: configuration),
+            session: uiTestCaptureSession(),
             authTokenProvider: authTokenProvider
         )
+    }
+
+    static func uiTestCaptureSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CaptureURLProtocol.self]
+        return URLSession(configuration: configuration)
     }
 }
 

@@ -18,6 +18,7 @@ final class OfflineDownloadsStore {
     private(set) var manifestsByAreaID: [String: OfflineAreaManifest] = [:]
     private(set) var operationsByAreaID: [String: Operation] = [:]
     private(set) var downloadedMapAreaIDs: Set<String> = []
+    private(set) var downloadedTopoAreaIDs: Set<String> = []
     private(set) var downloadProgressByAreaID: [String: Double] = [:]
 
     private let climbingRepository: ClimbingRepository
@@ -48,6 +49,10 @@ final class OfflineDownloadsStore {
             manifestsByAreaID = [:]
         }
 
+        downloadedTopoAreaIDs = Set(downloadedManifests.filter {
+            climbingRepository.hasDownloadedTopos(for: $0)
+        }.map(\.id))
+
         do {
             downloadedMapAreaIDs = try await offlineMapStore.downloadedAreaIDs()
         } catch {
@@ -68,7 +73,9 @@ final class OfflineDownloadsStore {
     }
 
     func isAvailableOffline(areaID: String) -> Bool {
-        manifestsByAreaID[areaID] != nil && downloadedMapAreaIDs.contains(areaID)
+        manifestsByAreaID[areaID] != nil
+            && downloadedMapAreaIDs.contains(areaID)
+            && downloadedTopoAreaIDs.contains(areaID)
     }
 
     func hasIncompleteDownload(areaID: String) -> Bool {
@@ -90,14 +97,17 @@ final class OfflineDownloadsStore {
 
         do {
             try await offlineMapStore.downloadMap(for: area) { [weak self] progress in
-                self?.downloadProgressByAreaID[area.id] = progress
+                self?.downloadProgressByAreaID[area.id] = progress * 0.8
             }
             downloadedMapAreaIDs.insert(area.id)
 
             try Task.checkCancellation()
-            let manifest = try await climbingRepository.download(area)
+            let manifest = try await climbingRepository.download(area) { [weak self] progress in
+                self?.downloadProgressByAreaID[area.id] = 0.8 + progress * 0.2
+            }
             try Task.checkCancellation()
             manifestsByAreaID[area.id] = manifest
+            downloadedTopoAreaIDs.insert(area.id)
             operationsByAreaID[area.id] = .idle
             downloadProgressByAreaID[area.id] = nil
         } catch is CancellationError {
@@ -133,6 +143,7 @@ final class OfflineDownloadsStore {
             }
             try climbingRepository.removeDownload(for: areaID)
             manifestsByAreaID[areaID] = nil
+            downloadedTopoAreaIDs.remove(areaID)
             operationsByAreaID[areaID] = .idle
         } catch {
             operationsByAreaID[areaID] = .failed(

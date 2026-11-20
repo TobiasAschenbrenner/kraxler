@@ -17,8 +17,21 @@ struct KraxlerApp: App {
     @State private var authSession: AuthSession
     @State private var connectivity = ConnectivityMonitor()
     private let modelContainer: ModelContainer
+    private let offlineTopoStore: OfflineTopoStore
 
     init() {
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-test-capture") {
+            offlineTopoStore = OfflineTopoStore(
+                directory: FileManager.default.temporaryDirectory.appending(path: "ui-test-topos-\(UUID().uuidString)"),
+                session: APIClient.uiTestCaptureSession()
+            )
+        } else {
+            offlineTopoStore = OfflineTopoStore()
+        }
+#else
+        offlineTopoStore = OfflineTopoStore()
+#endif
         let authenticationClient: AuthenticationClient
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-ui-test-authenticated") {
@@ -57,7 +70,8 @@ struct KraxlerApp: App {
             ContentView(
                 apiClient: apiClient,
                 modelContainer: modelContainer,
-                connectivity: connectivity
+                connectivity: connectivity,
+                offlineTopoStore: offlineTopoStore
             )
             .environment(authSession)
             .modelContainer(modelContainer)
@@ -66,7 +80,7 @@ struct KraxlerApp: App {
                 authSession.start()
 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-ui-test-offline") {
-                    await UITestOfflineScenario.run(connectivity: connectivity, modelContainer: modelContainer)
+                    await UITestOfflineScenario.run(connectivity: connectivity, modelContainer: modelContainer, topoStore: offlineTopoStore)
                     return
                 }
 #endif

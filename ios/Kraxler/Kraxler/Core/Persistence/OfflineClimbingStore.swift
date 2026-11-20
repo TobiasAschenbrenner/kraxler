@@ -24,7 +24,8 @@ final class OfflineClimbingStore {
         area: ClimbingArea,
         routes: [ClimbingRoute],
         at date: Date = .now,
-        dataVersion: Int = OfflineAreaManifest.currentDataVersion
+        dataVersion: Int = OfflineAreaManifest.currentDataVersion,
+        topoDownloadID: String? = nil
     ) throws {
         let savedAreaRecord: OfflineAreaRecord
 
@@ -33,7 +34,8 @@ final class OfflineClimbingStore {
             savedAreaRecord.update(
                 with: area,
                 refreshedAt: date,
-                dataVersion: dataVersion
+                dataVersion: dataVersion,
+                topoDownloadID: topoDownloadID
             )
             savedAreaRecord.routes.forEach(context.delete)
             savedAreaRecord.routes.removeAll()
@@ -42,7 +44,8 @@ final class OfflineClimbingStore {
                 area: area,
                 downloadedAt: date,
                 refreshedAt: date,
-                dataVersion: dataVersion
+                dataVersion: dataVersion,
+                topoDownloadID: topoDownloadID
             )
             context.insert(savedAreaRecord)
         }
@@ -52,7 +55,8 @@ final class OfflineClimbingStore {
             savedAreaRecord.routes.append(routeRecord)
         }
 
-        try context.save()
+        do { try context.save() }
+        catch { context.rollback(); throw error }
     }
 
     func remove(areaID: String) throws {
@@ -61,7 +65,8 @@ final class OfflineClimbingStore {
         }
 
         context.delete(record)
-        try context.save()
+        do { try context.save() }
+        catch { context.rollback(); throw error }
     }
 
     func areas(in bounds: MapBounds) throws -> [ClimbingArea] {
@@ -93,6 +98,13 @@ final class OfflineClimbingStore {
         )
         descriptor.fetchLimit = 1
         return try context.fetch(descriptor).first?.domainValue
+    }
+
+    func topoDownloadIDs(for routeID: String) throws -> [String] {
+        let descriptor = FetchDescriptor<OfflineRouteRecord>(
+            predicate: #Predicate { $0.routeID == routeID }
+        )
+        return Array(Set(try context.fetch(descriptor).compactMap { $0.area?.topoDownloadID }))
     }
 
     func search(_ query: String) throws -> SearchResults {

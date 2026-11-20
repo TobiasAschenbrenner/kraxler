@@ -12,8 +12,8 @@ save projects, track completed climbs and download areas for offline use.
 - Filter routes by grade, discipline, style, length and pitches
 - View route details and locations
 - Save projects and tick completed climbs in a library grouped by climbing area
-- Download climbing data and maps for offline use, and manage downloads
-- Register and sign in with email and password or Google, with persistent sessions
+- Download climbing data, maps and topo images for offline use, and manage downloads
+- Register and sign in with email/password, Google or Apple, with persistent sessions
 - Edit your name and profile picture, and choose system, light or dark appearance
 
 ---
@@ -22,7 +22,8 @@ save projects, track completed climbs and download areas for offline use.
 
 - **iOS:** Swift, SwiftUI, Mapbox Maps, Core Location and SwiftData
 - **Backend:** Node.js, TypeScript, Express and MongoDB Atlas (Mongoose)
-- **Authentication:** Firebase Authentication, Google Sign-In and Firebase Admin
+- **Authentication:** Firebase Authentication, Google Sign-In, Sign in with Apple and Firebase Admin
+- **Images:** Cloudinary for topo images and profile photos
 - **Testing:** Swift Testing, XCTest, Vitest and Supertest
 - **Deployment:** Hostinger, with automatic deployments from GitHub's `main` branch
 
@@ -33,7 +34,8 @@ save projects, track completed climbs and download areas for offline use.
 The SwiftUI app connects to an Express API hosted on Hostinger. MongoDB Atlas
 stores climbing content and personal data. Firebase authenticates users, and the
 API verifies their ID tokens before accessing profiles or saved and ticked routes.
-SwiftData stores downloaded climbing content; Mapbox provides maps and offline tiles.
+SwiftData stores downloaded climbing content, and topo images are saved locally.
+Mapbox provides maps and offline tiles; Cloudinary hosts topo images and profile photos.
 
 ![Kraxler application architecture](docs/images/architecture.png)
 
@@ -44,9 +46,9 @@ SwiftData stores downloaded climbing content; Mapbox provides maps and offline t
 ```text
 kraxler/
 ├── ios/Kraxler/             # iPhone app, Xcode project and tests
-├── backend/                 # Express API, MongoDB models, seed script and tests
-├── postman/                 # API request collection
-└── docs/                    # Project documentation
+├── backend/                # Express API, MongoDB models, seed script and tests
+├── postman/                # API request collection
+└── docs/images/             # Architecture and database diagrams
 ```
 
 ---
@@ -58,8 +60,9 @@ kraxler/
 - macOS with Xcode 27 or later and an iOS 26 or newer simulator or iPhone
 - Node.js 22 or later and npm
 - MongoDB, locally or through Atlas
-- Firebase project with Email/Password and Google authentication enabled
+- Firebase project with Email/Password, Google and Apple authentication enabled
 - Mapbox account and public access token
+- Cloudinary account for profile photo uploads
 
 ---
 
@@ -76,6 +79,10 @@ NODE_ENV=development
 
 MONGODB_URI=your_mongodb_connection_string
 FIREBASE_PROJECT_ID=your_firebase_project_id
+
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
 ### `ios/Kraxler/Config/MapboxSecrets.xcconfig`
@@ -110,14 +117,18 @@ The local API runs at [http://localhost:3000](http://localhost:3000).
 ### iOS
 
 For your own Firebase project, replace `GoogleService-Info.plist` and update the
-Google Sign-In URL scheme in `ios/Kraxler/Kraxler/Info.plist`.
+Google Sign-In URL scheme in `ios/Kraxler/Kraxler/Info.plist`. Use the same Firebase
+project for the app and backend.
 
 Open `ios/Kraxler/Kraxler.xcodeproj`, select the **Kraxler** scheme and a simulator,
 then press **⌘R**. Select your development team when running on an iPhone.
+Apple sign-in requires an active Apple Developer Program membership and the
+Sign in with Apple capability enabled for your App ID.
 
-The app uses the hosted API by default. For local simulator testing, change the
-default `baseURL` in [APIClient.swift](ios/Kraxler/Kraxler/Core/Networking/APIClient.swift)
-to `http://localhost:3000`.
+The app uses the hosted API by default. When using your own Firebase project,
+point the app at your backend by changing the default `baseURL` in
+[APIClient.swift](ios/Kraxler/Kraxler/Core/Networking/APIClient.swift). Use
+`http://localhost:3000` for local simulator testing.
 
 ---
 
@@ -153,6 +164,16 @@ and `2dsphere` indexes support map queries.
 `npm run seed` adds six area records and five routes across Cuvier in Fontainebleau
 and Röthelfels in the Frankenjura. It uses upserts, so repeated runs update the
 included records without duplicating them.
+
+Larger datasets and topo image associations use the separate climbing-data package.
+Validate it from `backend/`:
+
+```bash
+npm run import:climbing -- --data /path/to/data.json --media /path/to/media.json
+```
+
+To import, add `--apply --backup /path/to/backup.json` with a new backup filename.
+Source links and credits stay with the data package.
 
 ---
 

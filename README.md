@@ -156,14 +156,6 @@ included records without duplicating them.
 
 ---
 
-## 🚧 Project Status
-
-Kraxler is a prototype under active development. Physical-iPhone testing is still
-pending. Sign in with Apple has app-side support but still needs its capability
-and Firebase provider activated. Grade conversion between systems is planned.
-
----
-
 ## 🎓 Project Context
 
 A solo university capstone project, also used for the Mobile App Development
